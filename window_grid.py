@@ -7,7 +7,7 @@ class GridApp:
         self.root = root
         self.width = width
         self.height = height
-        self.cell_size = 30
+        self.cell_size = 10
         self.current_color = "white"  # Color por defecto
         self.grid = [[None for _ in range(width)] for _ in range(height)]
         self.create_widgets()
@@ -37,6 +37,8 @@ class GridApp:
         self.color_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Color", menu=self.color_menu)
         self.color_menu.add_command(label="Choose Color", command=self.choose_color)
+        self.color_menu.add_command(label="Fill with Green", command=self.fill_with_green)
+        self.color_menu.add_command(label="Fill with White", command=self.fill_with_white)
 
     def on_canvas_click(self, event):
         col = event.x // self.cell_size
@@ -48,6 +50,17 @@ class GridApp:
         color = colorchooser.askcolor()[1]  # Devuelve una tupla (color, código hex)
         if color:
             self.current_color = color
+
+    def fill_with_green(self):
+        self.fill_grid("green")
+
+    def fill_with_white(self):
+        self.fill_grid("white")
+
+    def fill_grid(self, color):
+        for row in range(self.height):
+            for col in range(self.width):
+                self.canvas.itemconfig(self.grid[row][col], fill=color)
 
     def save_grid(self):
         filename = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
@@ -71,8 +84,8 @@ def main():
     root.title("Grid Editor")
     
     # Personaliza el ancho y alto aquí
-    width = 10
-    height = 10
+    width = 50  # Cambiar según sea necesario
+    height = 50 # Cambiar según sea necesario
 
     app = GridApp(root, width, height)
     root.mainloop()
