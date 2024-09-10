@@ -16,7 +16,7 @@ class GridApp:
         self.original_colors = [[self.current_color for _ in range(width)] for _ in range(height)]  # Store original colors
         self.robot_start_position = (21, 1)  # Store original robot position
         self.robot_position = self.robot_start_position  # Current robot position
-        self.destination_position = (12, 45)  # Initial destination position #   
+        self.destination_position = (12, 45)  # Initial destination position
         self.trajectory_1 = []  # List for trajectory 1 (red)
         self.trajectory_2 = []  # List for trajectory 2 (blue)
         self.create_widgets()
@@ -42,7 +42,12 @@ class GridApp:
                 self.grid[row][col] = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", outline="black")
 
         self.canvas.bind("<Button-1>", self.on_canvas_click)
+        self.canvas.bind("<Motion>", self.on_mouse_motion)
         
+        # Create a label to display color and coordinates
+        self.info_label = tk.Label(self.root, text="", bg="white")
+        self.info_label.pack()
+
         self.menu = tk.Menu(self.root)
         self.root.config(menu=self.menu)
         
@@ -63,6 +68,13 @@ class GridApp:
         if 0 <= col < self.width and 0 <= row < self.height:
             self.canvas.itemconfig(self.grid[row][col], fill=self.current_color)
             self.original_colors[row][col] = self.current_color  # Save the color change
+
+    def on_mouse_motion(self, event):
+        col = event.x // self.cell_size
+        row = event.y // self.cell_size
+        if 0 <= col < self.width and 0 <= row < self.height:
+            color = self.canvas.itemcget(self.grid[row][col], "fill")
+            self.info_label.config(text=f"Coordinates: ({row}, {col}) - Color: {color}")
 
     def choose_color(self):
         color = colorchooser.askcolor()[1]  # Returns a tuple (color, hex code)
@@ -180,7 +192,7 @@ class GridApp:
 
     def play_trajectory(self, trajectory):
         for position in trajectory:
-            self.root.after(50, self.move_robot, position)  # Move robot with a delay of 500ms
+            self.root.after(50, self.move_robot, position)  # Move robot with a delay of 50ms
 
     def print_trajectory_1(self):
         print("Trajectory 1 (Red):")
