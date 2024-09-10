@@ -62,6 +62,76 @@ class GridApp:
         self.color_menu.add_command(label="Fill with Green", command=self.fill_with_green)
         self.color_menu.add_command(label="Fill with White", command=self.fill_with_white)
 
+    def reorder_trajectory(self, trajectory):
+        def is_adjacent(p1, p2):
+            return (p1[0] == p2[0] and abs(p1[1] - p2[1]) == 1) or (p1[1] == p2[1] and abs(p1[0] - p2[0]) == 1)
+
+        # Create adjacency dictionary
+        adjacency_dict = {}
+        for i, point in enumerate(trajectory):
+            adjacency_dict[point] = []
+            for j, other_point in enumerate(trajectory):
+                if i != j and is_adjacent(point, other_point):
+                    adjacency_dict[point].append(other_point)
+
+        # Find the starting point based on adjacency to robot position
+        robot_row, robot_col = self.robot_position
+        adjacent_cells = [
+            (robot_row, robot_col - 1),  # left
+            (robot_row, robot_col + 1),  # right
+            (robot_row - 1, robot_col),  # up
+            (robot_row + 1, robot_col)   # down
+        ]
+        
+        # Filter adjacent cells that are within grid range
+        adjacent_cells = [(row, col) for row, col in adjacent_cells if 0 <= row < self.height and 0 <= col < self.width]
+
+        def distance(p1, p2):
+            return abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
+
+        def find_closest_start_index():
+            min_dist = float('inf')
+            start_index = 0
+            for i, point in enumerate(trajectory):
+                for adj in adjacent_cells:
+                    dist = distance(point, adj)
+                    if dist < min_dist:
+                        min_dist = dist
+                        start_index = i
+            return start_index
+
+        start_index = find_closest_start_index()
+
+        # Reorder trajectory starting from the closest point
+        ordered_trajectory = trajectory[start_index:] + trajectory[:start_index]
+
+        # Adjust trajectory according to adjacency
+        ordered_trajectory_final = []
+        used_points = set()
+        current_point = ordered_trajectory[0]
+        ordered_trajectory_final.append(current_point)
+        used_points.add(current_point)
+
+        while len(ordered_trajectory_final) < len(ordered_trajectory):
+            next_point = None
+            for adj in adjacency_dict[current_point]:
+                if adj not in used_points:
+                    next_point = adj
+                    break
+            if next_point:
+                ordered_trajectory_final.append(next_point)
+                used_points.add(next_point)
+                current_point = next_point
+            else:
+                break
+
+        # Add remaining points if there are any left
+        for point in ordered_trajectory:
+            if point not in used_points:
+                ordered_trajectory_final.append(point)
+
+        return ordered_trajectory_final
+
     def on_canvas_click(self, event):
         col = event.x // self.cell_size
         row = event.y // self.cell_size
@@ -124,6 +194,10 @@ class GridApp:
                         self.trajectory_1.append((row, col))
                     elif color == "#0432ff":  # Hex code for blue
                         self.trajectory_2.append((row, col))
+
+            # Reorder trajectories after loading grid
+            self.trajectory_1 = self.reorder_trajectory(self.trajectory_1)
+            self.trajectory_2 = self.reorder_trajectory(self.trajectory_2)
 
             # Place robot and destination after loading grid
             self.place_robot()
