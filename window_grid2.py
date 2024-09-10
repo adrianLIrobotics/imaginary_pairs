@@ -212,16 +212,16 @@ class GridApp:
         self.canvas.itemconfig(self.grid[row][col], fill=self.destination_color)
 
     def move_robot(self, position):
-        row, col = position
-        # Check if the new cell is not black (blocked)
-        if self.canvas.itemcget(self.grid[row][col], "fill") != "black":
-            # Restore the original color of the previous cell
-            original_color = self.original_colors[self.robot_position[0]][self.robot_position[1]]
-            self.canvas.itemconfig(self.grid[self.robot_position[0]][self.robot_position[1]], fill=original_color)
-            
-            # Update the robot's position and place it
-            self.robot_position = position
-            self.place_robot()
+        if 0 <= position[0] < self.height and 0 <= position[1] < self.width:
+            # Check if the destination cell is not black
+            if self.canvas.itemcget(self.grid[position[0]][position[1]], "fill") != "black":
+                # Restore the original color of the previous cell
+                original_color = self.original_colors[self.robot_position[0]][self.robot_position[1]]
+                self.canvas.itemconfig(self.grid[self.robot_position[0]][self.robot_position[1]], fill=original_color)
+                
+                # Update the robot's position and place it
+                self.robot_position = position
+                self.place_robot()
 
     def create_controls(self):
         control_frame = tk.Frame(self.root)
@@ -257,6 +257,40 @@ class GridApp:
         count_clusters_button = tk.Button(control_frame, text="Count Clusters", command=self.count_clusters)
         count_clusters_button.grid(row=6, column=1)
 
+        # Add new buttons and entry fields
+        self.amplify_button = tk.Button(control_frame, text="Amplify", command=self.amplify_trajectory)
+        self.amplify_button.grid(row=7, column=0)
+
+        self.reduce_button = tk.Button(control_frame, text="Reduce", command=self.reduce_trajectory)
+        self.reduce_button.grid(row=7, column=2)
+
+        tk.Label(control_frame, text="Multiply Factor").grid(row=7, column=1)
+        self.integer_entry = tk.Entry(control_frame)
+        self.integer_entry.grid(row=8, column=1)
+        self.integer_entry.bind("<KeyRelease>", self.check_multiply_factor)
+
+        tk.Label(control_frame, text="ID Cluster").grid(row=9, column=0)
+        self.cluster_id_entry = tk.Entry(control_frame)
+        self.cluster_id_entry.grid(row=9, column=1)
+
+    def check_multiply_factor(self, event=None):
+        # Check if the integer entry is not empty and contains a valid integer
+        try:
+            int(self.integer_entry.get())
+            self.amplify_button.config(state=tk.NORMAL)  # Enable amplify_button
+            self.reduce_button.config(state=tk.NORMAL)  # Enable reduce_button
+        except ValueError:
+            self.amplify_button.config(state=tk.DISABLED)  # Disable amplify_button
+            self.reduce_button.config(state=tk.DISABLED)  # Disable reduce_button
+
+    def amplify_trajectory(self):
+        factor = int(self.integer_entry.get())
+        # Implement amplification logic for trajectory
+
+    def reduce_trajectory(self):
+        factor = int(self.integer_entry.get())
+        # Implement reduction logic for trajectory
+
     def reset_robot(self):
         self.robot_position = self.robot_start_position
         self.place_robot()
@@ -286,8 +320,9 @@ class GridApp:
     def count_clusters(self):
         visited = [[False for _ in range(self.width)] for _ in range(self.height)]
         clusters = 0
+        cluster_data = {}
 
-        def dfs_black(row, col):
+        def dfs_black(row, col, cluster_id):
             stack = [(row, col)]
             black_cells = []
             while stack:
@@ -320,11 +355,21 @@ class GridApp:
         for row in range(self.height):
             for col in range(self.width):
                 if not visited[row][col] and self.canvas.itemcget(self.grid[row][col], "fill") == "#000000":
-                    black_cells = dfs_black(row, col)
+                    black_cells = dfs_black(row, col, clusters)
                     if black_cells:
                         yellow_cells = bfs_yellow(black_cells)
                         if yellow_cells:
+                            cluster_data[clusters] = {
+                                'black': black_cells,
+                                'yellow': list(yellow_cells)
+                            }
                             clusters += 1
+
+        # Print the cluster IDs and their cell contents
+        for cluster_id, cells in cluster_data.items():
+            print(f"Cluster ID: {cluster_id}")
+            print(f"  Black cells: {cells['black']}")
+            print(f"  Yellow cells: {cells['yellow']}")
 
         print(f"Number of clusters: {clusters}")
 
