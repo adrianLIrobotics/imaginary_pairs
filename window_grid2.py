@@ -14,8 +14,11 @@ class GridApp:
         self.destination_color = "purple"  # Destination color
         self.grid = [[None for _ in range(width)] for _ in range(height)]
         self.original_colors = [[self.current_color for _ in range(width)] for _ in range(height)]  # Store original colors
-        self.robot_position = (21, 1)  # Initial robot position
-        self.destination_position = (height-1, width-1)  # Initial destination position
+        self.robot_start_position = (21, 1)  # Store original robot position
+        self.robot_position = self.robot_start_position  # Current robot position
+        self.destination_position = (12, 45)  # Initial destination position #   
+        self.trajectory_1 = []  # List for trajectory 1 (red)
+        self.trajectory_2 = []  # List for trajectory 2 (blue)
         self.create_widgets()
         self.create_controls()
 
@@ -93,15 +96,26 @@ class GridApp:
         if filepath and os.path.exists(filepath):
             with open(filepath, 'r') as f:
                 grid_data = json.load(f)
+            
+            # Clear previous trajectories
+            self.trajectory_1 = []
+            self.trajectory_2 = []
+
             for row in range(self.height):
                 for col in range(self.width):
                     color = grid_data[row][col]
                     self.canvas.itemconfig(self.grid[row][col], fill=color)
                     self.original_colors[row][col] = color  # Store original colors
 
-            # Reposition the robot and destination on the loaded grid
-            self.place_robot()  # Ensure the robot appears after loading the grid
-            self.place_destination()  # Ensure the destination appears
+                    # Check and store trajectory colors
+                    if color == "#ff2600":  # Hex code for red
+                        self.trajectory_1.append((row, col))
+                    elif color == "#0432ff":  # Hex code for blue
+                        self.trajectory_2.append((row, col))
+
+            # Place robot and destination after loading grid
+            self.place_robot()
+            self.place_destination()
 
     def place_robot(self):
         row, col = self.robot_position
@@ -111,45 +125,72 @@ class GridApp:
         row, col = self.destination_position
         self.canvas.itemconfig(self.grid[row][col], fill=self.destination_color)
 
-    def move_robot(self, direction):
-        row, col = self.robot_position
-        new_row, new_col = row, col
-
-        if direction == "up" and row > 0:
-            new_row = row - 1
-        elif direction == "down" and row < self.height - 1:
-            new_row = row + 1
-        elif direction == "left" and col > 0:
-            new_col = col - 1
-        elif direction == "right" and col < self.width - 1:
-            new_col = col + 1
-
+    def move_robot(self, position):
+        row, col = position
         # Check if the new cell is not black (blocked)
-        if self.canvas.itemcget(self.grid[new_row][new_col], "fill") != "black":
+        if self.canvas.itemcget(self.grid[row][col], "fill") != "black":
             # Restore the original color of the previous cell
-            original_color = self.original_colors[row][col]
-            self.canvas.itemconfig(self.grid[row][col], fill=original_color)
+            original_color = self.original_colors[self.robot_position[0]][self.robot_position[1]]
+            self.canvas.itemconfig(self.grid[self.robot_position[0]][self.robot_position[1]], fill=original_color)
             
             # Update the robot's position and place it
-            self.robot_position = (new_row, new_col)
+            self.robot_position = position
             self.place_robot()
 
     def create_controls(self):
         control_frame = tk.Frame(self.root)
         control_frame.pack()
 
-        up_button = tk.Button(control_frame, text="Up", command=lambda: self.move_robot("up"))
+        up_button = tk.Button(control_frame, text="Up", command=lambda: self.move_robot((self.robot_position[0]-1, self.robot_position[1])) if self.robot_position[0] > 0 else None)
         up_button.grid(row=0, column=1)
 
-        left_button = tk.Button(control_frame, text="Left", command=lambda: self.move_robot("left"))
+        left_button = tk.Button(control_frame, text="Left", command=lambda: self.move_robot((self.robot_position[0], self.robot_position[1]-1)) if self.robot_position[1] > 0 else None)
         left_button.grid(row=1, column=0)
 
-        right_button = tk.Button(control_frame, text="Right", command=lambda: self.move_robot("right"))
+        right_button = tk.Button(control_frame, text="Right", command=lambda: self.move_robot((self.robot_position[0], self.robot_position[1]+1)) if self.robot_position[1] < self.width-1 else None)
         right_button.grid(row=1, column=2)
 
-        down_button = tk.Button(control_frame, text="Down", command=lambda: self.move_robot("down"))
+        down_button = tk.Button(control_frame, text="Down", command=lambda: self.move_robot((self.robot_position[0]+1, self.robot_position[1])) if self.robot_position[0] < self.height-1 else None)
         down_button.grid(row=2, column=1)
 
+        reset_button = tk.Button(control_frame, text="Reset", command=self.reset_robot)
+        reset_button.grid(row=3, column=1)
+
+        play_trajectory_1_button = tk.Button(control_frame, text="Play Trajectory 1", command=self.play_trajectory_1)
+        play_trajectory_1_button.grid(row=4, column=0)
+
+        play_trajectory_2_button = tk.Button(control_frame, text="Play Trajectory 2", command=self.play_trajectory_2)
+        play_trajectory_2_button.grid(row=4, column=2)
+
+        print_trajectory_1_button = tk.Button(control_frame, text="Print Trajectory 1", command=self.print_trajectory_1)
+        print_trajectory_1_button.grid(row=5, column=0)
+
+        print_trajectory_2_button = tk.Button(control_frame, text="Print Trajectory 2", command=self.print_trajectory_2)
+        print_trajectory_2_button.grid(row=5, column=2)
+
+    def reset_robot(self):
+        self.robot_position = self.robot_start_position
+        self.place_robot()
+
+    def play_trajectory_1(self):
+        self.play_trajectory(self.trajectory_1)
+
+    def play_trajectory_2(self):
+        self.play_trajectory(self.trajectory_2)
+
+    def play_trajectory(self, trajectory):
+        for position in trajectory:
+            self.root.after(50, self.move_robot, position)  # Move robot with a delay of 500ms
+
+    def print_trajectory_1(self):
+        print("Trajectory 1 (Red):")
+        for position in self.trajectory_1:
+            print(position)
+
+    def print_trajectory_2(self):
+        print("Trajectory 2 (Blue):")
+        for position in self.trajectory_2:
+            print(position)
 
 def main():
     root = tk.Tk()
@@ -158,11 +199,8 @@ def main():
     # Customize width and height here
     width = 50  # Adjust as needed
     height = 50 # Adjust as needed
-
-    # Default map file to load
-    default_map = "/Users/adrian/Desktop/traj2.txt"
-
-    app = GridApp(root, width, height, default_map=default_map)
+    
+    app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/traj2.txt")
     root.mainloop()
 
 if __name__ == "__main__":
