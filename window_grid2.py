@@ -242,10 +242,10 @@ class GridApp:
         reset_button = tk.Button(control_frame, text="Reset", command=self.reset_robot)
         reset_button.grid(row=3, column=1)
 
-        play_trajectory_1_button = tk.Button(control_frame, text="Play Trajectory 1", command=self.play_trajectory_1)
+        play_trajectory_1_button = tk.Button(control_frame, text="Play Trajectory 1", command=lambda: self.play_trajectory(self.trajectory_1))
         play_trajectory_1_button.grid(row=4, column=0)
 
-        play_trajectory_2_button = tk.Button(control_frame, text="Play Trajectory 2", command=self.play_trajectory_2)
+        play_trajectory_2_button = tk.Button(control_frame, text="Play Trajectory 2", command=lambda: self.play_trajectory(self.trajectory_2))
         play_trajectory_2_button.grid(row=4, column=2)
 
         print_trajectory_1_button = tk.Button(control_frame, text="Print Trajectory 1", command=self.print_trajectory_1)
@@ -258,15 +258,17 @@ class GridApp:
         self.robot_position = self.robot_start_position
         self.place_robot()
 
-    def play_trajectory_1(self):
-        self.play_trajectory(self.trajectory_1)
-
-    def play_trajectory_2(self):
-        self.play_trajectory(self.trajectory_2)
-
     def play_trajectory(self, trajectory):
-        for position in trajectory:
-            self.root.after(50, self.move_robot, position)  # Move robot with a delay of 50ms
+        self.current_trajectory = trajectory
+        self.trajectory_index = 0
+        self.move_next_position()
+
+    def move_next_position(self):
+        if self.trajectory_index < len(self.current_trajectory):
+            next_position = self.current_trajectory[self.trajectory_index]
+            self.move_robot(next_position)
+            self.trajectory_index += 1
+            self.root.after(500, self.move_next_position)  # Move robot every 500ms
 
     def print_trajectory_1(self):
         print("Trajectory 1 (Red):")
