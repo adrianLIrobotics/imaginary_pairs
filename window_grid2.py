@@ -194,8 +194,8 @@ class GridApp:
                         self.trajectory_1.append((row, col))
                     elif color == "#0432ff":  # Hex code for blue
                         self.trajectory_2.append((row, col))
-
-            # Reorder trajectories after loading grid
+                    
+            # Reorder trajectories
             self.trajectory_1 = self.reorder_trajectory(self.trajectory_1)
             self.trajectory_2 = self.reorder_trajectory(self.trajectory_2)
 
@@ -254,6 +254,9 @@ class GridApp:
         print_trajectory_2_button = tk.Button(control_frame, text="Print Trajectory 2", command=self.print_trajectory_2)
         print_trajectory_2_button.grid(row=5, column=2)
 
+        count_clusters_button = tk.Button(control_frame, text="Count Clusters", command=self.count_clusters)
+        count_clusters_button.grid(row=6, column=1)
+
     def reset_robot(self):
         self.robot_position = self.robot_start_position
         self.place_robot()
@@ -279,6 +282,51 @@ class GridApp:
         print("Trajectory 2 (Blue):")
         for position in self.trajectory_2:
             print(position)
+
+    def count_clusters(self):
+        visited = [[False for _ in range(self.width)] for _ in range(self.height)]
+        clusters = 0
+
+        def dfs_black(row, col):
+            stack = [(row, col)]
+            black_cells = []
+            while stack:
+                r, c = stack.pop()
+                if not (0 <= r < self.height and 0 <= c < self.width) or visited[r][c]:
+                    continue
+                if self.canvas.itemcget(self.grid[r][c], "fill") != "#000000":
+                    continue
+                visited[r][c] = True
+                black_cells.append((r, c))
+
+                # Check all 4 directions
+                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nr, nc = r + dr, c + dc
+                    stack.append((nr, nc))
+            return black_cells
+
+        def bfs_yellow(black_cells):
+            yellow_cells = set()
+            directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+            for r, c in black_cells:
+                for dr, dc in directions:
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < self.height and 0 <= nc < self.width and not visited[nr][nc]:
+                        if self.canvas.itemcget(self.grid[nr][nc], "fill") == "#fefb00":
+                            yellow_cells.add((nr, nc))
+                            visited[nr][nc] = True
+            return yellow_cells
+
+        for row in range(self.height):
+            for col in range(self.width):
+                if not visited[row][col] and self.canvas.itemcget(self.grid[row][col], "fill") == "#000000":
+                    black_cells = dfs_black(row, col)
+                    if black_cells:
+                        yellow_cells = bfs_yellow(black_cells)
+                        if yellow_cells:
+                            clusters += 1
+
+        print(f"Number of clusters: {clusters}")
 
 def main():
     root = tk.Tk()
