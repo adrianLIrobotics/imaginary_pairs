@@ -60,15 +60,19 @@ for distance, turn_possible in readings:
 '''
 stateDiagram-v2
     [*] --> Green
-    Green --> Green: Path is clear\n**Action: Move Forward**
+    Green --> Green: Path is clear\n**Action: Follow trajectory to desrtination**
     Green --> Yellow: Obstacle detected at precaution distance\n**Action: Turn Around**
-    Green --> Red: Obstacle suddenly becomes critically close\n**Action: Stop**
+    Green --> Black: Obstacle suddenly becomes critically close\n**Action: Stop**
 
     Yellow --> Yellow: Obstacle still present, adjusting\n**Action: Continue Turning**
     Yellow --> Green: Obstacle cleared\n**Action: Resume Movement**
     Yellow --> Red: Obstacle critically close\n**Action: Stop**
 
-    Red --> Red: Obstacle still critically close\n**Action: Stop**
-    Red --> Green: Obstacle cleared\n**Action: Resume Movement**
-    Red --> Yellow: Obstacle at caution distance (if turning possible)\n**Action: Turn Around**
+    Black --> Black: Obstacle still critically close\n**Action: Stop**
+    Black --> Green: Obstacle cleared\n**Action: Resume Movement**
+    Black --> Yellow: Obstacle at caution distance (if turning possible)\n**Action: Turn Around**
+
+
+    RULES:
+    *Inflation layer should have neibour that is an actual obstacle (black)
 '''
