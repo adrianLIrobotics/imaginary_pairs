@@ -345,8 +345,8 @@ class GridApp:
         path.reverse()  # Reverse the path to get it from start to goal
 
         # Highlight the path on the grid
-        for row, col in path:
-            self.canvas.itemconfig(self.grid[row][col], fill="orange")
+        for row, col in path[0:-1]:
+            self.canvas.itemconfig(self.grid[row][col], fill="orange") # DISPLAY
 
         print("Path found:", path)
 
