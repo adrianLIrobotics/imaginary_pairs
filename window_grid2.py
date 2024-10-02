@@ -11,7 +11,7 @@ class GridApp:
         self.height = height
         self.cell_size = 10
         self.current_color = "white"  # Default color
-        self.robot_color = "orange"  # Robot color
+        self.robot_color = "blue"  # Robot color
         self.destination_color = "purple"  # Destination color
         self.grid = [[None for _ in range(width)] for _ in range(height)]
         self.original_colors = [[self.current_color for _ in range(width)] for _ in range(height)]  # Store original colors
@@ -22,6 +22,8 @@ class GridApp:
         self.trajectory_2 = []  # List for trajectory 2 (blue)
         self.create_widgets()
         self.create_controls()
+        self.path = []
+        self.default_map = default_map
 
         # Dropdown for policy selection
         self.create_policy_dropdown()
@@ -336,19 +338,19 @@ class GridApp:
     def reconstruct_path(self, came_from, start, goal):
         """Reconstructs the path from start to goal."""
         current = goal
-        path = []
+        
 
         while current != start:
-            path.append(current)
+            self.path.append(current)
             current = came_from[current]
 
-        path.reverse()  # Reverse the path to get it from start to goal
+        self.path.reverse()  # Reverse the path to get it from start to goal
 
         # Highlight the path on the grid
-        for row, col in path[0:-1]:
+        for row, col in self.path[0:-1]:
             self.canvas.itemconfig(self.grid[row][col], fill="orange") # DISPLAY
 
-        print("Path found:", path)
+        print("Path found:", self.path)
 
     def move_robot(self, position):
         if 0 <= position[0] < self.height and 0 <= position[1] < self.width:
@@ -411,6 +413,10 @@ class GridApp:
         tk.Label(control_frame, text="ID Cluster").grid(row=9, column=0)
         self.cluster_id_entry = tk.Entry(control_frame)
         self.cluster_id_entry.grid(row=9, column=1)
+
+        # Button to clear the path
+        self.clear_button = tk.Button(control_frame, text="Clear Path", command=self.clear_path)
+        self.clear_button.grid(row=1, column=1)
 
     def check_multiply_factor(self, event=None):
         # Check if the integer entry is not empty and contains a valid integer
@@ -511,6 +517,16 @@ class GridApp:
             print(f"  Yellow cells: {cells['yellow']}")
 
         print(f"Number of clusters: {clusters}")
+
+    # Function to clear the path
+    def clear_path(self):
+        
+        # Reload map
+        self.load_grid(self.default_map)
+        
+        self.path.clear() 
+
+    
 
 def main():
     root = tk.Tk()
