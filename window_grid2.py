@@ -145,6 +145,14 @@ class GridApp:
             self.canvas.itemconfig(self.grid[row][col], fill=self.current_color)
             self.original_colors[row][col] = self.current_color  # Save the color change
 
+    def get_cell_color(self, row, col):
+        """Returns the current color of the cell at the given (row, col) coordinates."""
+        if 0 <= row < self.height and 0 <= col < self.width:
+            return self.canvas.itemcget(self.grid[row][col], "fill")
+        else:
+            return None  # Coordinates out of bounds
+
+
     def on_mouse_motion(self, event):
         col = event.x // self.cell_size
         row = event.y // self.cell_size
@@ -215,6 +223,7 @@ class GridApp:
     def place_robot(self):
         row, col = self.robot_position
         self.canvas.itemconfig(self.grid[row][col], fill=self.robot_color)
+       
 
     def create_policy_dropdown(self):
         # Create a frame for dropdown
@@ -383,17 +392,11 @@ class GridApp:
         reset_button = tk.Button(control_frame, text="Reset", command=self.reset_robot)
         reset_button.grid(row=3, column=1)
 
-        play_trajectory_1_button = tk.Button(control_frame, text="Play Trajectory 1", command=lambda: self.play_trajectory(self.trajectory_1))
-        play_trajectory_1_button.grid(row=4, column=0)
+        play_trajectory_2_button = tk.Button(control_frame, text="Play Trajectory", command=lambda: self.play_trajectory(self.path))
+        play_trajectory_2_button.grid(row=4, column=1)
 
-        play_trajectory_2_button = tk.Button(control_frame, text="Play Trajectory 2", command=lambda: self.play_trajectory(self.trajectory_2))
-        play_trajectory_2_button.grid(row=4, column=2)
-
-        print_trajectory_1_button = tk.Button(control_frame, text="Print Trajectory 1", command=self.print_trajectory_1)
-        print_trajectory_1_button.grid(row=5, column=0)
-
-        print_trajectory_2_button = tk.Button(control_frame, text="Print Trajectory 2", command=self.print_trajectory_2)
-        print_trajectory_2_button.grid(row=5, column=2)
+        print_trajectory_1_button = tk.Button(control_frame, text="Print Trajectory", command=self.print_trajectory_1)
+        print_trajectory_1_button.grid(row=5, column=1)
 
         count_clusters_button = tk.Button(control_frame, text="Count Clusters", command=self.count_clusters)
         count_clusters_button.grid(row=6, column=1)
@@ -437,8 +440,17 @@ class GridApp:
         # Implement reduction logic for trajectory
 
     def reset_robot(self):
+        # self.robot_position get current color
+        '''
+        print(self.get_cell_color(self.robot_position[0], self.robot_position[1]))
+        self.robot_position = self.robot_start_position
+        print(self.robot_start_position[0])
+        self.place_robot()
+        '''
+        
         self.robot_position = self.robot_start_position
         self.place_robot()
+        self.load_grid(self.default_map)
 
     def play_trajectory(self, trajectory):
         self.current_trajectory = trajectory
