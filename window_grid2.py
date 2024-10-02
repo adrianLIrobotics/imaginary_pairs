@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, colorchooser
 import json
 import os
+import heapq
 
 class GridApp:
     def __init__(self, root, width, height, default_map=None):
@@ -21,6 +22,9 @@ class GridApp:
         self.trajectory_2 = []  # List for trajectory 2 (blue)
         self.create_widgets()
         self.create_controls()
+
+        # Dropdown for policy selection
+        self.create_policy_dropdown()
 
         # Automatically load the default map if provided
         if default_map and os.path.exists(default_map):
@@ -194,10 +198,13 @@ class GridApp:
                         self.trajectory_1.append((row, col))
                     elif color == "#0432ff":  # Hex code for blue
                         self.trajectory_2.append((row, col))
-                    
-            # Reorder trajectories
-            self.trajectory_1 = self.reorder_trajectory(self.trajectory_1)
-            self.trajectory_2 = self.reorder_trajectory(self.trajectory_2)
+
+            try: 
+                # Reorder trajectories
+                self.trajectory_1 = self.reorder_trajectory(self.trajectory_1)
+                self.trajectory_2 = self.reorder_trajectory(self.trajectory_2)
+            except:
+                pass
 
             # Place robot and destination after loading grid
             self.place_robot()
@@ -207,9 +214,141 @@ class GridApp:
         row, col = self.robot_position
         self.canvas.itemconfig(self.grid[row][col], fill=self.robot_color)
 
+    def create_policy_dropdown(self):
+        # Create a frame for dropdown
+        dropdown_frame = tk.Frame(self.root)
+        dropdown_frame.pack()
+
+        # Define policies and create StringVar to store selected policy
+        self.policy_var = tk.StringVar(self.root)
+        self.policy_var.set("Policy 1")  # Default value
+
+        # Create the OptionMenu widget
+        policies = ["Policy 1", "Policy 2", "Policy 3"]
+        self.policy_dropdown = tk.OptionMenu(dropdown_frame, self.policy_var, *policies, command=self.on_policy_change)
+        self.policy_dropdown.pack()
+
+    def on_policy_change(self, selection):
+        # This function is called whenever a new option is selected in the dropdown
+        if selection == "Policy 1":
+            self.print_policy_1()
+            '''
+            Ejecutamos policy 1 - Sortest path & most green cells possible.
+            '''
+            self.find_shortest_path()
+
+        elif selection == "Policy 2":
+            self.print_policy_2()
+            '''
+            Ejecutamos policy 2
+            '''
+        elif selection == "Policy 3":
+            self.print_policy_3()
+            '''
+            Ejecutamos policy 3
+            '''
+
+    def find_shortest_path(self):
+        """Finds the shortest path to the destination while maximizing visits to green cells and avoiding yellow cells."""
+        start = self.robot_position
+        goal = self.destination_position
+
+        # Set up a priority queue (min-heap) for A* search
+        open_list = []
+        heapq.heappush(open_list, (0, start))  # (priority, (row, col))
+
+        # Dictionaries to keep track of costs and paths
+        came_from = {start: None}
+        cost_so_far = {start: 0}
+
+        # Define weights for each cell type
+        weights = {
+            "green": 1,  # Prioritize green cells
+            "white": 2,  # Neutral cells
+            "yellow": 5  # Avoid yellow cells
+        }
+
+        while open_list:
+            _, current = heapq.heappop(open_list)
+
+            # If the robot reaches the goal, reconstruct and display the path
+            if current == goal:
+                self.reconstruct_path(came_from, start, goal)
+                return
+
+            # Get the current row and column
+            current_row, current_col = current
+
+            # Check all four possible neighbors (up, down, left, right)
+            for neighbor in self.get_neighbors(current_row, current_col):
+                neighbor_row, neighbor_col = neighbor
+
+                # Get the color of the neighbor cell
+                cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], "fill")
+
+                # Assign weight based on cell color
+                if cell_color == "green":
+                    move_cost = weights["green"]
+                elif cell_color == "yellow":
+                    move_cost = weights["yellow"]
+                else:
+                    move_cost = weights["white"]
+
+                # Calculate new cost to reach this neighbor
+                new_cost = cost_so_far[current] + move_cost
+
+                # If this path is shorter, or the neighbor hasn't been visited yet
+                if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
+                    cost_so_far[neighbor] = new_cost
+                    priority = new_cost
+                    heapq.heappush(open_list, (priority, neighbor))
+                    came_from[neighbor] = current
+
+        print("No path found!")
+
+    # Define three functions to print the policy names
+    def print_policy_1(self):
+        print("Policy 1 selected")
+
+    def print_policy_2(self):
+        print("Policy 2 selected")
+
+    def print_policy_3(self):
+        print("Policy 3 selected")
+
     def place_destination(self):
         row, col = self.destination_position
         self.canvas.itemconfig(self.grid[row][col], fill=self.destination_color)
+    
+    def get_neighbors(self, row, col):
+        """Returns valid neighboring cells (up, down, left, right)."""
+        neighbors = []
+        if row > 0:  # Up
+            neighbors.append((row - 1, col))
+        if row < self.height - 1:  # Down
+            neighbors.append((row + 1, col))
+        if col > 0:  # Left
+            neighbors.append((row, col - 1))
+        if col < self.width - 1:  # Right
+            neighbors.append((row, col + 1))
+        return neighbors
+
+    def reconstruct_path(self, came_from, start, goal):
+        """Reconstructs the path from start to goal."""
+        current = goal
+        path = []
+
+        while current != start:
+            path.append(current)
+            current = came_from[current]
+
+        path.reverse()  # Reverse the path to get it from start to goal
+
+        # Highlight the path on the grid
+        for row, col in path:
+            self.canvas.itemconfig(self.grid[row][col], fill="orange")
+
+        print("Path found:", path)
 
     def move_robot(self, position):
         if 0 <= position[0] < self.height and 0 <= position[1] < self.width:
@@ -381,7 +520,8 @@ def main():
     width = 50  # Adjust as needed
     height = 50 # Adjust as needed
     
-    app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/traj2.txt")
+    #app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/traj2.txt")
+    app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/map_final.txt")
     root.mainloop()
 
 if __name__ == "__main__":
