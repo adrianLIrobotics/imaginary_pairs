@@ -244,7 +244,7 @@ class GridApp:
         if selection == "Policy 1":
             self.print_policy_1()
             '''
-            Ejecutamos policy 1 - Sortest path & most green cells possible.
+            Ejecutamos policy 1 - Sortest path & most green cells possible. # Check if it will go over yellow if there is no green. #TODO
             '''
             self.find_shortest_path()
 
@@ -253,6 +253,8 @@ class GridApp:
             '''
             Ejecutamos policy 2
             '''
+            self.find_shortest_path_policy2()
+
         elif selection == "Policy 3":
             self.print_policy_3()
             '''
@@ -276,7 +278,7 @@ class GridApp:
         weights = {
             "green": 1,  # Prioritize green cells
             "white": 2,  # Neutral cells
-            "yellow": 5  # Avoid yellow cells
+            "fefb00": 5  # Avoid yellow cells
         }
 
         while open_list:
@@ -296,12 +298,12 @@ class GridApp:
 
                 # Get the color of the neighbor cell
                 cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], "fill")
-
+                print(cell_color)
                 # Assign weight based on cell color
                 if cell_color == "green":
                     move_cost = weights["green"]
-                elif cell_color == "yellow":
-                    move_cost = weights["yellow"]
+                elif cell_color == "fefb00":
+                    move_cost = weights["fefb00"]
                 else:
                     move_cost = weights["white"]
 
@@ -316,6 +318,101 @@ class GridApp:
                     came_from[neighbor] = current
 
         print("No path found!")
+
+    def find_shortest_path_policy2(self):
+        """
+        Finds the shortest path to the destination while:
+        - Staying as far as possible from yellow cells.
+        - Maximizing the use of green cells for the shortest path.
+        """
+        self.clear_previous_path()  # Clear any previous paths
+
+        start = self.robot_position
+        goal = self.destination_position
+
+        # Set up a priority queue (min-heap) for A* search
+        open_list = []
+        heapq.heappush(open_list, (0, start))  # (priority, (row, col))
+
+        # Dictionaries to keep track of costs and paths
+        came_from = {start: None}
+        cost_so_far = {start: 0}
+
+        # Define base weights for each cell type
+        weights = {
+            "green": 1,    # Green cells are the most preferred
+            "white": 2,    # Neutral cells
+            "#fefb00": 500  # Yellow cells are heavily penalized
+        }
+
+        def distance_to_nearest_yellow(row, col):
+            """Calculate the Manhattan distance to the nearest yellow cell."""
+            min_distance = float('inf')
+            found_yellow = False  # Flag to check if we found a yellow cell
+            
+            for neighbor in self.get_neighbors(row, col):
+                neighbor_row, neighbor_col = neighbor
+                cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], "fill")
+                if cell_color == "#fefb00":  # Check for yellow color
+                    found_yellow = True
+                    # Manhattan distance between (row, col) and the yellow cell
+                    distance = abs(neighbor_row - row) + abs(neighbor_col - col)
+                    min_distance = min(min_distance, distance)
+                    print(f"Found yellow at: ({neighbor_row}, {neighbor_col}) with distance: {distance}")
+
+            if not found_yellow:
+                print(f"No yellow cell found near: ({row}, {col})")
+                return 999  # Return a large value to indicate no yellow cell found
+
+            return min_distance
+
+
+        while open_list:
+            _, current = heapq.heappop(open_list)
+
+            # If the robot reaches the goal, reconstruct the path
+            if current == goal:
+                self.reconstruct_path(came_from, start, goal)  # Call the path reconstruction method
+                break  # Exit the loop once the goal is reached
+
+            # Get the current row and column
+            current_row, current_col = current
+
+            # Check all four possible neighbors (up, down, left, right)
+            for neighbor in self.get_neighbors(current_row, current_col):
+                neighbor_row, neighbor_col = neighbor
+
+                # Get the color of the neighbor cell
+                cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], "fill")
+                #print(cell_color)
+
+                # Assign base weight based on cell color
+                move_cost = weights.get(cell_color, 2)  # Default to white cell weight
+
+                # Heavily penalize cells that are close to yellow cells
+                print(str(neighbor_row) + " "+ str(neighbor_col ))
+                distance_penalty = distance_to_nearest_yellow(neighbor_row, neighbor_col)
+                print(distance_penalty)
+                if distance_penalty == 1:
+                    move_cost += 30  # Immediate proximity to yellow is highly penalized
+                elif distance_penalty == 2:
+                    move_cost += 300  # Somewhat close to yellow
+                    #print("here")
+                elif distance_penalty == 3:
+                    move_cost += 5   # Moderate proximity to yellow
+
+                # Calculate new cost to reach this neighbor
+                new_cost = cost_so_far[current] + move_cost
+
+                # If this path is shorter, or the neighbor hasn't been visited yet
+                if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
+                    cost_so_far[neighbor] = new_cost
+                    priority = new_cost
+                    heapq.heappush(open_list, (priority, neighbor))
+                    came_from[neighbor] = current
+
+        if current != goal:
+            print("No path found!")
 
     # Define three functions to print the policy names
     def print_policy_1(self):
@@ -332,22 +429,22 @@ class GridApp:
         self.canvas.itemconfig(self.grid[row][col], fill=self.destination_color)
     
     def get_neighbors(self, row, col):
-        """Returns valid neighboring cells (up, down, left, right)."""
+        """Returns the valid neighboring cells (up, down, left, right)."""
         neighbors = []
-        if row > 0:  # Up
-            neighbors.append((row - 1, col))
-        if row < self.height - 1:  # Down
-            neighbors.append((row + 1, col))
-        if col > 0:  # Left
-            neighbors.append((row, col - 1))
-        if col < self.width - 1:  # Right
-            neighbors.append((row, col + 1))
+        for d_row, d_col in [(-1, 0), (1, 0), (0, -1), (0, 1)]:  # up, down, left, right
+            neighbor_row, neighbor_col = row + d_row, col + d_col
+            if 0 <= neighbor_row < self.height and 0 <= neighbor_col < self.width:
+                neighbors.append((neighbor_row, neighbor_col))
+                print(f"Cell ({neighbor_row}, {neighbor_col}) color: {self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], 'fill')}")
         return neighbors
 
-    def reconstruct_path(self, came_from, start, goal):
+    def reconstruct_path(self, came_from, start, goal, clear_previous=True):
         """Reconstructs the path from start to goal."""
         current = goal
-        
+
+        # Clear the previous path display if needed
+        if clear_previous:
+            self.clear_previous_path()
 
         while current != start:
             self.path.append(current)
@@ -355,11 +452,17 @@ class GridApp:
 
         self.path.reverse()  # Reverse the path to get it from start to goal
 
-        # Highlight the path on the grid
+        # Highlight the new path on the grid
         for row, col in self.path[0:-1]:
-            self.canvas.itemconfig(self.grid[row][col], fill="orange") # DISPLAY
+            self.canvas.itemconfig(self.grid[row][col], fill="orange")  # DISPLAY
 
         print("Path found:", self.path)
+
+    def clear_previous_path(self):
+        """Clears the previously displayed paths on the grid."""
+        for row, col in self.path:
+            self.canvas.itemconfig(self.grid[row][col], fill="white")  # Reset color to white or neutral
+        self.path.clear()  # Clear the stored path list
 
     def move_robot(self, position):
         if 0 <= position[0] < self.height and 0 <= position[1] < self.width:
@@ -372,6 +475,7 @@ class GridApp:
                 # Update the robot's position and place it
                 self.robot_position = position
                 self.place_robot()
+                self.get_neighbors(self.robot_position[0], self.robot_position[1])
 
     def create_controls(self):
         control_frame = tk.Frame(self.root)
