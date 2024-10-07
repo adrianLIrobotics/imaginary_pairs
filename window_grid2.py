@@ -253,7 +253,7 @@ class GridApp:
             '''
             Ejecutamos policy 2
             '''
-            self.find_shortest_path_policy2()
+            self.find_shortest_path_policy3(yellow_cells_distance=5) #self.find_shortest_path_policy2()
 
         elif selection == "Policy 3":
             self.print_policy_3()
@@ -400,6 +400,90 @@ class GridApp:
                     #print("here")
                 elif distance_penalty == 3:
                     move_cost += 5   # Moderate proximity to yellow
+
+                # Calculate new cost to reach this neighbor
+                new_cost = cost_so_far[current] + move_cost
+
+                # If this path is shorter, or the neighbor hasn't been visited yet
+                if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
+                    cost_so_far[neighbor] = new_cost
+                    priority = new_cost
+                    heapq.heappush(open_list, (priority, neighbor))
+                    came_from[neighbor] = current
+
+        if current != goal:
+            print("No path found!")
+
+    def find_shortest_path_policy3(self, yellow_cells_distance):
+        """
+        Finds the shortest path to the destination while:
+        - Staying away from yellow cells based on an input parameter yellow_cells_distance. 
+        This needs to be an integer. The robot should generate a path that always follows the rule 
+        of staying a minimum number of cells (in all directions: up, down, left, right) away from yellow cells.
+        - Maximizing the use of green cells for the shortest path.
+        """
+        self.clear_previous_path()  # Clear any previous paths
+
+        start = self.robot_position
+        goal = self.destination_position
+
+        # Set up a priority queue (min-heap) for A* search
+        open_list = []
+        heapq.heappush(open_list, (0, start))  # (priority, (row, col))
+
+        # Dictionaries to keep track of costs and paths
+        came_from = {start: None}
+        cost_so_far = {start: 0}
+
+        # Define base weights for each cell type
+        weights = {
+            "green": 1,    # Green cells are the most preferred
+            "white": 2,    # Neutral cells
+            "#fefb00": 500  # Yellow cells are heavily penalized
+        }
+
+        def distance_to_nearest_yellow(row, col):
+            """Calculate the Manhattan distance to the nearest yellow cell."""
+            min_distance = float('inf')
+            
+            # Iterate through all cells in the grid to find the closest yellow cell
+            for r in range(self.height):
+                for c in range(self.width):
+                    cell_color = self.canvas.itemcget(self.grid[r][c], "fill")
+                    if cell_color == "#fefb00":  # If the cell is yellow
+                        distance = abs(r - row) + abs(c - col)  # Manhattan distance
+                        min_distance = min(min_distance, distance)
+
+            return min_distance
+
+
+        while open_list:
+            _, current = heapq.heappop(open_list)
+
+            # If the robot reaches the goal, reconstruct the path
+            if current == goal:
+                self.reconstruct_path(came_from, start, goal)  # Call the path reconstruction method
+                break  # Exit the loop once the goal is reached
+
+            # Get the current row and column
+            current_row, current_col = current
+
+            # Check all four possible neighbors (up, down, left, right)
+            for neighbor in self.get_neighbors(current_row, current_col):
+                neighbor_row, neighbor_col = neighbor
+
+                # Get the color of the neighbor cell
+                cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], "fill")
+
+                # Assign base weight based on cell color
+                move_cost = weights.get(cell_color, 2)  # Default to white cell weight
+
+                # Check the Manhattan distance to the nearest yellow cell
+                distance_penalty = distance_to_nearest_yellow(neighbor_row, neighbor_col)
+
+                # If the distance to the nearest yellow cell is less than the allowed distance, heavily penalize
+                if distance_penalty < yellow_cells_distance:
+                    move_cost += 1000  # Apply a large penalty to avoid these cells
 
                 # Calculate new cost to reach this neighbor
                 new_cost = cost_so_far[current] + move_cost
