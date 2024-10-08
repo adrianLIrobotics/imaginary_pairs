@@ -244,7 +244,7 @@ class GridApp:
         if selection == "Policy 1":
             self.print_policy_1()
             '''
-            Ejecutamos policy 1 - Sortest path & most green cells possible. # Check if it will go over yellow if there is no green. #TODO
+            Ejecutamos policy 1 - Sortest path & most green cells possible. # Check if it will go over yellow if there is no green. 
             '''
             self.find_shortest_path()
 
@@ -260,6 +260,7 @@ class GridApp:
             '''
             Ejecutamos policy 3
             '''
+            self.find_shortest_path_policy4()
 
     def find_shortest_path(self):
         """Finds the shortest path to the destination while maximizing visits to green cells and avoiding yellow cells."""
@@ -498,6 +499,104 @@ class GridApp:
         if current != goal:
             print("No path found!")
 
+    def find_shortest_path_policy4(self):
+        """
+        Finds the shortest path to the destination while:
+        - Maximizing the use of green cells in the shortest path.
+        - Exiting yellow cells immediately if the robot is on a yellow cell.
+        - Ensuring the robot never revisits a cell it has already visited.
+        """
+        self.clear_previous_path()  # Clear any previous paths
+
+        start = self.robot_position
+        goal = self.destination_position
+
+        # Set up a priority queue (min-heap) for A* search
+        open_list = []
+        heapq.heappush(open_list, (0, 0, start))  # (priority, negative_green_cells, (row, col))
+
+        # Dictionaries to keep track of costs, paths, and green cell counts
+        came_from = {start: None}
+        cost_so_far = {start: 0}
+        green_cells_count = {start: 0}
+        visited_cells = set()  # Set to track visited cells
+        visited_cells.add(start)  # Mark the start as visited
+
+        # Define base weights for each cell type
+        weights = {
+            "green": 1,    # Green cells are preferred
+            "white": 2,    # Neutral cells
+            "#fefb00": 100  # Yellow cells are penalized
+        }
+
+        def get_cell_color(row, col):
+            """Get the color of the cell at (row, col)."""
+            return self.canvas.itemcget(self.grid[row][col], "fill")
+
+        def is_cell_green(row, col):
+            """Check if a cell is green."""
+            return get_cell_color(row, col) == "green"
+
+        def is_cell_yellow(row, col):
+            """Check if a cell is yellow."""
+            return get_cell_color(row, col) == "#fefb00"
+
+        def heuristic(a, b):
+            """Heuristic for A* (Manhattan distance)."""
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+        while open_list:
+            _, neg_green_cells, current = heapq.heappop(open_list)
+            current_green_cells = -neg_green_cells  # Convert back to positive
+
+            # If the robot reaches the goal, reconstruct the path
+            if current == goal:
+                self.reconstruct_path(came_from, start, goal)  # Call the path reconstruction method
+                break  # Exit the loop once the goal is reached
+
+            # Get the current row and column
+            current_row, current_col = current
+
+            # Check all four possible neighbors (up, down, left, right)
+            for neighbor in self.get_neighbors(current_row, current_col):
+                neighbor_row, neighbor_col = neighbor
+
+                # Skip already visited cells
+                if neighbor in visited_cells:
+                    continue
+
+                # Get the color of the neighbor cell
+                cell_color = get_cell_color(neighbor_row, neighbor_col)
+
+                # Assign base weight based on cell color
+                move_cost = weights.get(cell_color, 2)  # Default to white cell weight
+
+                # Increase the green cells count if the neighbor is green
+                additional_green_cells = 1 if cell_color == "green" else 0
+
+                # Penalize staying in yellow cells
+                if is_cell_yellow(current_row, current_col):
+                    if is_cell_yellow(neighbor_row, neighbor_col):
+                        move_cost += 100  # Heavy penalty for staying in yellow
+                    else:
+                        move_cost = 1  # Encourage leaving yellow cells immediately
+
+                # Calculate new cost to reach this neighbor
+                new_cost = cost_so_far[current] + move_cost
+                new_green_cells_count = current_green_cells + additional_green_cells
+
+                # If this path is shorter, or the neighbor hasn't been visited yet
+                if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
+                    cost_so_far[neighbor] = new_cost
+                    green_cells_count[neighbor] = new_green_cells_count
+                    priority = new_cost + heuristic(goal, neighbor)
+                    heapq.heappush(open_list, (priority, -new_green_cells_count, neighbor))
+                    came_from[neighbor] = current
+                    visited_cells.add(neighbor)  # Mark this neighbor as visited
+
+        if current != goal:
+            print("No path found!")
+
     # Define three functions to print the policy names
     def print_policy_1(self):
         print("Policy 1 selected")
@@ -583,8 +682,10 @@ class GridApp:
         play_trajectory_2_button = tk.Button(control_frame, text="Play Trajectory", command=lambda: self.play_trajectory(self.path))
         play_trajectory_2_button.grid(row=4, column=1)
 
+        '''
         print_trajectory_1_button = tk.Button(control_frame, text="Print Trajectory", command=self.print_trajectory_1)
         print_trajectory_1_button.grid(row=5, column=1)
+        '''
 
         count_clusters_button = tk.Button(control_frame, text="Count Clusters", command=self.count_clusters)
         count_clusters_button.grid(row=6, column=1)
