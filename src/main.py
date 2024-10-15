@@ -40,22 +40,23 @@ class GridApp:
         self.canvas = tk.Canvas(self.root, width=self.width*self.cell_size, height=self.height*self.cell_size)
         self.canvas.pack()
 
+        # Initialize an empty 2D grid (a list of lists) to store the rectangle and text item references
+        self.grid = [[None for _ in range(self.width)] for _ in range(self.height)]
         for row in range(self.height):
+            row_items = []  # Will hold the text IDs for this row
             for col in range(self.width):
                 x1 = col * self.cell_size
                 y1 = row * self.cell_size
                 x2 = x1 + self.cell_size
                 y2 = y1 + self.cell_size
-                self.grid[row][col] = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", outline="black")
-
-                '''
-                # Calculate the center of the cell
-                x_center = (x1 + x2) // 2
-                y_center = (y1 + y2) // 2
+                # Create the rectangle for the grid cell and store the reference in self.grid[row][col]
+                rect_id = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", outline="black")
                 
-                # Draw the number 1 in the center of the cell
-                self.canvas.create_text(x_center, y_center, text="1", font=("Arial", 14))
-                '''
+                # Create a text item for displaying values and store the reference in self.grid[row][col]
+                text_id = self.canvas.create_text((x1 + x2) / 2, (y1 + y2) / 2, text="", font=("Arial", 12))
+                
+                # Store both rectangle and text references in self.grid[row][col]
+                self.grid[row][col] = (rect_id, text_id) 
 
 
         self.canvas.bind("<Button-1>", self.on_canvas_click)
@@ -153,7 +154,11 @@ class GridApp:
         col = event.x // self.cell_size
         row = event.y // self.cell_size
         if 0 <= col < self.width and 0 <= row < self.height:
-            self.canvas.itemconfig(self.grid[row][col], fill=self.current_color)
+
+
+            rect_id, _ = self.grid[row][col]  # Extract the rectangle ID
+            self.canvas.itemconfig(rect_id, fill=self.current_color)  # Configure the rectangle's color
+
             self.original_colors[row][col] = self.current_color  # Save the color change
 
     def get_cell_color(self, row, col):
@@ -191,11 +196,13 @@ class GridApp:
     def save_grid(self):
         filename = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
         if filename:
-            grid_data = [[self.canvas.itemcget(self.grid[row][col], "fill") for col in range(self.width)] for row in range(self.height)]
+
+            grid_data = [[self.canvas.itemcget(self.grid[row][col][0], "fill") for col in range(self.width)] for row in range(self.height)]
             with open(filename, 'w') as f:
                 json.dump(grid_data, f)
     
     def load_grid(self, filepath=None):
+        """Load grid data from a file and update the grid."""
         # If no filepath is provided, ask the user for one
         if not filepath:
             filepath = filedialog.askopenfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
@@ -211,7 +218,10 @@ class GridApp:
             for row in range(self.height):
                 for col in range(self.width):
                     color = grid_data[row][col]
-                    self.canvas.itemconfig(self.grid[row][col], fill=color)
+                    
+                    # Update the color of the rectangle
+                    rect_id, text_id = self.grid[row][col]  # Retrieve the rectangle and text IDs
+                    self.canvas.itemconfig(rect_id, fill=color)  # Set the fill color for the rectangle
                     self.original_colors[row][col] = color  # Store original colors
 
                     # Check and store trajectory colors
@@ -221,11 +231,11 @@ class GridApp:
                         self.trajectory_2.append((row, col))
 
             try: 
-                # Reorder trajectories
+                # Reorder trajectories if applicable
                 self.trajectory_1 = self.reorder_trajectory(self.trajectory_1)
                 self.trajectory_2 = self.reorder_trajectory(self.trajectory_2)
-            except:
-                pass
+            except Exception as e:
+                print(f"Error reordering trajectories: {e}")
 
             # Place robot and destination after loading grid
             self.place_robot()
@@ -233,8 +243,8 @@ class GridApp:
 
     def place_robot(self):
         row, col = self.robot_position
-        self.canvas.itemconfig(self.grid[row][col], fill=self.robot_color)
-       
+        rect_id, _ = self.grid[row][col]  # Get the rectangle ID
+        self.canvas.itemconfig(rect_id, fill=self.robot_color)  # Configure the rectangle's color
 
     def create_policy_dropdown(self):
         # Create a frame for dropdown
@@ -285,6 +295,10 @@ class GridApp:
                 text_id = self.canvas.create_text(x1, y1, text="1", fill="black", font=("Arial", 10))
                 self.text_ids.append(text_id)
 
+    def heuristic(self, a, b):
+            """Calculates the Manhattan distance between two points."""
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
     def find_shortest_path(self):
         """Finds the shortest path to the destination while maximizing visits to green cells and avoiding yellow cells."""
         start = self.robot_position
@@ -294,9 +308,10 @@ class GridApp:
         open_list = []
         heapq.heappush(open_list, (0, start))  # (priority, (row, col))
 
-        # Dictionaries to keep track of costs and paths
+        # Dictionaries to keep track of costs, paths, and chosen neighbors
         came_from = {start: None}
         cost_so_far = {start: 0}
+        chosen_neighbors = {}  # Stores the best neighbor for each cell
 
         # Define weights for each cell type
         weights = {
@@ -305,15 +320,16 @@ class GridApp:
             "fefb00": 5  # Avoid yellow cells
         }
 
+        
+
         while open_list:
+            # Pop the node with the lowest f-score
             _, current = heapq.heappop(open_list)
 
             # If the robot reaches the goal, reconstruct and display the path
             if current == goal:
                 self.reconstruct_path(came_from, start, goal)
-                # After calculating the shortest path, display costs in all cells
-                self.display_costs(cost_so_far)
-                return
+                break
 
             # Get the current row and column
             current_row, current_col = current
@@ -324,7 +340,6 @@ class GridApp:
 
                 # Get the color of the neighbor cell
                 cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], "fill")
-                print(cell_color)
                 # Assign weight based on cell color
                 if cell_color == "green":
                     move_cost = weights["green"]
@@ -336,15 +351,64 @@ class GridApp:
                 # Calculate new cost to reach this neighbor
                 new_cost = cost_so_far[current] + move_cost
 
+                # Heuristic cost to reach the goal (for tie-breaking)
+                h_cost = self.heuristic(neighbor, goal)
+
+                # Calculate total priority (f = g + h)
+                priority = new_cost + h_cost
+
                 # If this path is shorter, or the neighbor hasn't been visited yet
                 if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
                     cost_so_far[neighbor] = new_cost
-                    priority = new_cost
                     heapq.heappush(open_list, (priority, neighbor))
                     came_from[neighbor] = current
 
-        print("No path found!")
-        
+                    # Record the chosen neighbor for this cell
+                    chosen_neighbors[neighbor] = current
+
+            # After each step, update the grid with the latest costs and chosen paths
+            #self.update_cost_display(cost_so_far, chosen_neighbors)
+
+        # No path found
+        if current != goal:
+            print("No path found!")
+
+        # After calculating the shortest path, display the total cost (g + h) for each cell
+        self.display_final_costs(cost_so_far, chosen_neighbors)
+
+    def update_cost_display(self, cost_so_far, chosen_neighbors):
+        for row in range(self.height):
+            for col in range(self.width):
+                rect_id, text_id = self.grid[row][col]  # Extract both the rect_id and text_id
+
+                # Get the f-cost (which is the sum of cumulative cost and heuristic)
+                f_cost = cost_so_far.get((row, col), float('inf'))  # Default to infinity if the cell hasn't been visited
+                
+                # Update the text display for the cell
+                self.canvas.itemconfig(text_id, text=f"{f_cost}")  # Update the text_id to display the f-cost
+
+               
+
+    def display_final_costs(self, cost_so_far, chosen_neighbors):
+        """
+        Displays the final calculated cost (g + h) for each cell in the grid.
+        This function also shows the chosen path based on the lowest cost.
+        """
+        for row in range(len(self.grid)):
+            for col in range(len(self.grid[row])):
+                cell_position = (row, col)
+                if cell_position in cost_so_far:
+                    g_cost = cost_so_far[cell_position]
+                    h_cost = self.heuristic(cell_position, self.destination_position)
+                    f_cost = g_cost + h_cost
+
+                    # Update the grid with the final f-cost and chosen neighbor
+                    if cell_position in chosen_neighbors:
+                        chosen_neighbor = chosen_neighbors[cell_position]
+                        self.canvas.itemconfig(self.grid[row][col][1], text=f"{f_cost}\n h: {h_cost}")
+                    else:
+                        self.canvas.itemconfig(self.grid[row][col][1], text=f"{f_cost}")
+
 
     def display_costs(self, cost_so_far):
         """Display the total cost calculated by A* for each cell."""
@@ -356,6 +420,19 @@ class GridApp:
             # Display the cost in the center of each cell
             text_id = self.canvas.create_text(x1, y1, text=str(cost), fill="black", font=("Arial", 10))
             self.text_ids.append(text_id)
+
+    def display_cost_for_goal(self, goal, cost_so_far):
+        """Display the total cost calculated by A* for the goal cell."""
+        if goal in cost_so_far:
+            cost = cost_so_far[goal]
+            # Get the center of the goal cell
+            goal_row, goal_col = goal
+            x1 = goal_col * self.cell_size + self.cell_size // 2
+            y1 = goal_row * self.cell_size + self.cell_size // 2
+            # Display the cost of the goal cell in the center
+            self.canvas.create_text(x1, y1, text=str(cost), fill="black", font=("Arial", 10))
+        else:
+            print("Goal not reachable, no cost to display.")
 
     def find_shortest_path_policy2(self):
         """
@@ -646,7 +723,8 @@ class GridApp:
 
     def place_destination(self):
         row, col = self.destination_position
-        self.canvas.itemconfig(self.grid[row][col], fill=self.destination_color)
+        rect_id, _ = self.grid[row][col]  # Extract the rectangle ID
+        self.canvas.itemconfig(rect_id, fill=self.destination_color)  # Configure the rectangle's color
     
     def get_neighbors(self, row, col):
         """Returns the valid neighboring cells (up, down, left, right)."""
@@ -674,7 +752,9 @@ class GridApp:
 
         # Highlight the new path on the grid
         for row, col in self.path[0:-1]:
-            self.canvas.itemconfig(self.grid[row][col], fill="orange")  # DISPLAY
+            rect_id, _ = self.grid[row][col]  # Extract the rectangle ID
+            self.canvas.itemconfig(rect_id, fill="orange")  # Configure the rectangle's color
+
 
         print("Path found:", self.path)
 
@@ -882,7 +962,7 @@ def main():
     height = 10 # Adjust as needed
     
     #app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/traj2.txt")
-    app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/map_1a.txt")
+    app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/a.txt")
     #app = GridApp(root, width, height)
     root.mainloop()
 
