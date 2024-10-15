@@ -258,7 +258,7 @@ class GridApp:
             Ejecutamos policy 1 - Sortest path & most green cells possible. # Check if it will go over yellow if there is no green. 
             '''
             self.find_shortest_path()
-            self.display_ones()
+            #self.display_ones()
 
         elif selection == "Policy 2":
             self.print_policy_2()
@@ -311,6 +311,8 @@ class GridApp:
             # If the robot reaches the goal, reconstruct and display the path
             if current == goal:
                 self.reconstruct_path(came_from, start, goal)
+                # After calculating the shortest path, display costs in all cells
+                self.display_costs(cost_so_far)
                 return
 
             # Get the current row and column
@@ -342,6 +344,18 @@ class GridApp:
                     came_from[neighbor] = current
 
         print("No path found!")
+        
+
+    def display_costs(self, cost_so_far):
+        """Display the total cost calculated by A* for each cell."""
+        for (row, col), cost in cost_so_far.items():
+            # Get the center of the cell
+            x1 = col * self.cell_size + self.cell_size // 2
+            y1 = row * self.cell_size + self.cell_size // 2
+            
+            # Display the cost in the center of each cell
+            text_id = self.canvas.create_text(x1, y1, text=str(cost), fill="black", font=("Arial", 10))
+            self.text_ids.append(text_id)
 
     def find_shortest_path_policy2(self):
         """
