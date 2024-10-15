@@ -9,21 +9,22 @@ class GridApp:
         self.root = root
         self.width = width
         self.height = height
-        self.cell_size = 10
+        self.cell_size = 50
         self.current_color = "white"  # Default color
         self.robot_color = "blue"  # Robot color
         self.destination_color = "purple"  # Destination color
         self.grid = [[None for _ in range(width)] for _ in range(height)]
         self.original_colors = [[self.current_color for _ in range(width)] for _ in range(height)]  # Store original colors
-        self.robot_start_position = (21, 1)  # Store original robot position
+        self.robot_start_position = (1, 1)  # Store original robot position
         self.robot_position = self.robot_start_position  # Current robot position
-        self.destination_position = (12, 45)  # Initial destination position
+        self.destination_position = (8, 8)  # Initial destination position
         self.trajectory_1 = []  # List for trajectory 1 (red)
         self.trajectory_2 = []  # List for trajectory 2 (blue)
         self.create_widgets()
         self.create_controls()
         self.path = []
         self.default_map = default_map
+        self.text_ids = []
 
         # Dropdown for policy selection
         self.create_policy_dropdown()
@@ -46,6 +47,16 @@ class GridApp:
                 x2 = x1 + self.cell_size
                 y2 = y1 + self.cell_size
                 self.grid[row][col] = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", outline="black")
+
+                '''
+                # Calculate the center of the cell
+                x_center = (x1 + x2) // 2
+                y_center = (y1 + y2) // 2
+                
+                # Draw the number 1 in the center of the cell
+                self.canvas.create_text(x_center, y_center, text="1", font=("Arial", 14))
+                '''
+
 
         self.canvas.bind("<Button-1>", self.on_canvas_click)
         self.canvas.bind("<Motion>", self.on_mouse_motion)
@@ -247,6 +258,7 @@ class GridApp:
             Ejecutamos policy 1 - Sortest path & most green cells possible. # Check if it will go over yellow if there is no green. 
             '''
             self.find_shortest_path()
+            self.display_ones()
 
         elif selection == "Policy 2":
             self.print_policy_2()
@@ -261,6 +273,17 @@ class GridApp:
             Ejecutamos policy 3
             '''
             self.find_shortest_path_policy4()
+
+    def display_ones(self):
+        """Display the number '1' in each cell of the grid."""
+        for row in range(self.height):
+            for col in range(self.width):
+                # Place '1' in the center of each cell
+                x1 = col * self.cell_size + self.cell_size // 2
+                y1 = row * self.cell_size + self.cell_size // 2
+                # Draw a '1' text in the center of the cell
+                text_id = self.canvas.create_text(x1, y1, text="1", fill="black", font=("Arial", 10))
+                self.text_ids.append(text_id)
 
     def find_shortest_path(self):
         """Finds the shortest path to the destination while maximizing visits to green cells and avoiding yellow cells."""
@@ -439,7 +462,7 @@ class GridApp:
         # Define base weights for each cell type
         weights = {
             "green": 1,    # Green cells are the most preferred
-            "white": 2,    # Neutral cells
+            #"white": 2,    # Neutral cells
             "#fefb00": 500  # Yellow cells are heavily penalized
         }
 
@@ -740,6 +763,13 @@ class GridApp:
         self.robot_position = self.robot_start_position
         self.place_robot()
         self.load_grid(self.default_map)
+        self.display_delete()
+
+    def display_delete(self):
+        for text_id in self.text_ids:
+            self.canvas.delete(text_id)  # Delete each text object by its ID
+        self.text_ids.clear()
+        
 
     def play_trajectory(self, trajectory):
         self.current_trajectory = trajectory
@@ -834,11 +864,12 @@ def main():
     root.title("Grid Editor")
     
     # Customize width and height here
-    width = 50  # Adjust as needed
-    height = 50 # Adjust as needed
+    width = 10  # Adjust as needed
+    height = 10 # Adjust as needed
     
     #app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/traj2.txt")
-    app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/map_final.txt")
+    app = GridApp(root, width, height, default_map="/Users/adrian/Desktop/map_1a.txt")
+    #app = GridApp(root, width, height)
     root.mainloop()
 
 if __name__ == "__main__":
