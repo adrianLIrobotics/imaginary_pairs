@@ -15,7 +15,7 @@ class GridApp:
         self.destination_color = "purple"  # Destination color
         self.grid = [[None for _ in range(width)] for _ in range(height)]
         self.original_colors = [[self.current_color for _ in range(width)] for _ in range(height)]  # Store original colors
-        self.robot_start_position = (4, 0) # (1,1)  # Store original robot position
+        self.robot_start_position = (3, 2) # (1,1)  # Store original robot position
         self.robot_position = self.robot_start_position  # Current robot position
         self.destination_position = (8, 8)  # Initial destination position
         self.trajectory_1 = []  # List for trajectory 1 (red)
@@ -277,7 +277,7 @@ class GridApp:
             '''
             Ejecutamos policy 2
             '''
-            self.find_shortest_path_with_neighbor_distance(1)
+            self.find_shortest_path_with_neighbor_distance(2)
             #self.find_shortest_path_policy3(yellow_cells_distance=5) 
 
         elif selection == "Policy 3":
@@ -850,10 +850,10 @@ class GridApp:
     def move_robot(self, position):
         if 0 <= position[0] < self.height and 0 <= position[1] < self.width:
             # Check if the destination cell is not black
-            if self.canvas.itemcget(self.grid[position[0]][position[1]], "fill") != "black":
+            if self.canvas.itemcget(self.grid[position[0]][position[1]][0], "fill") != "black":  # Access the rectangle ID with [0]
                 # Restore the original color of the previous cell
                 original_color = self.original_colors[self.robot_position[0]][self.robot_position[1]]
-                self.canvas.itemconfig(self.grid[self.robot_position[0]][self.robot_position[1]], fill=original_color)
+                self.canvas.itemconfig(self.grid[self.robot_position[0]][self.robot_position[1]][0], fill=original_color)  # Access the rectangle ID with [0]
                 
                 # Update the robot's position and place it
                 self.robot_position = position
