@@ -15,7 +15,7 @@ class GridApp:
         self.destination_color = "purple"  # Destination color
         self.grid = [[None for _ in range(width)] for _ in range(height)]
         self.original_colors = [[self.current_color for _ in range(width)] for _ in range(height)]  # Store original colors
-        self.robot_start_position = (1, 1)  # Store original robot position
+        self.robot_start_position = (4, 0) # (1,1)  # Store original robot position
         self.robot_position = self.robot_start_position  # Current robot position
         self.destination_position = (8, 8)  # Initial destination position
         self.trajectory_1 = []  # List for trajectory 1 (red)
@@ -277,7 +277,7 @@ class GridApp:
             '''
             Ejecutamos policy 2
             '''
-            self.find_shortest_path_with_neighbor_distance()
+            self.find_shortest_path_with_neighbor_distance(1)
             #self.find_shortest_path_policy3(yellow_cells_distance=5) 
 
         elif selection == "Policy 3":
