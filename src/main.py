@@ -164,7 +164,7 @@ class GridApp:
     def get_cell_color(self, row, col):
         """Returns the current color of the cell at the given (row, col) coordinates."""
         if 0 <= row < self.height and 0 <= col < self.width:
-            return self.canvas.itemcget(self.grid[row][col], "fill")
+            return self.canvas.itemcget(self.grid[row][col][0], "fill")
         else:
             return None  # Coordinates out of bounds
 
@@ -316,11 +316,9 @@ class GridApp:
         # Define weights for each cell type
         weights = {
             "green": 1,  # Prioritize green cells
-            "white": 2,  # Neutral cells
-            "fefb00": 5  # Avoid yellow cells
+            "white": 3,  # Neutral cells
+            "#fefb00": 5  # Avoid yellow cells
         }
-
-        
 
         while open_list:
             # Pop the node with the lowest f-score
@@ -339,12 +337,12 @@ class GridApp:
                 neighbor_row, neighbor_col = neighbor
 
                 # Get the color of the neighbor cell
-                cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], "fill")
+                cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col][0], "fill")
                 # Assign weight based on cell color
                 if cell_color == "green":
                     move_cost = weights["green"]
-                elif cell_color == "fefb00":
-                    move_cost = weights["fefb00"]
+                elif cell_color == "#fefb00":
+                    move_cost = weights["#fefb00"]
                 else:
                     move_cost = weights["white"]
 
@@ -646,7 +644,7 @@ class GridApp:
 
         def get_cell_color(row, col):
             """Get the color of the cell at (row, col)."""
-            return self.canvas.itemcget(self.grid[row][col], "fill")
+            return self.canvas.itemcget(self.grid[row][col][0], "fill")
 
         def is_cell_green(row, col):
             """Check if a cell is green."""
