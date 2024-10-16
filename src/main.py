@@ -174,7 +174,11 @@ class GridApp:
         row = event.y // self.cell_size
         if 0 <= col < self.width and 0 <= row < self.height:
             color = self.canvas.itemcget(self.grid[row][col][0], "fill")
-            self.info_label.config(text=f"({row}, {col}) - {color}")
+            text_content = self.canvas.itemcget(self.grid[row][col][1], "text")
+
+            #self.canvas.itemconfig(self.grid[row][col][1], text=f"h: {h_cost}\n  g: {g_cost}")
+
+            self.info_label.config(text=f"({row}, {col}) - {color} - {text_content}")
 
     def choose_color(self):
         color = colorchooser.askcolor()[1]  # Returns a tuple (color, hex code)
