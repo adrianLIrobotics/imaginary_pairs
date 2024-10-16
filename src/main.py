@@ -168,7 +168,6 @@ class GridApp:
         else:
             return None  # Coordinates out of bounds
 
-
     def on_mouse_motion(self, event):
         col = event.x // self.cell_size
         row = event.y // self.cell_size
@@ -277,7 +276,7 @@ class GridApp:
             '''
             Ejecutamos policy 2
             '''
-            self.find_shortest_path_with_neighbor_distance(2)
+            self.find_shortest_path_with_neighbor_distance(1) #1
             #self.find_shortest_path_policy3(yellow_cells_distance=5) 
 
         elif selection == "Policy 3":
@@ -323,7 +322,7 @@ class GridApp:
             "white": 3,    # Neutral cells
             "#fefb00": 5   # Avoid yellow cells
         }
-        penalty_for_yellow_neighbors = 2  # Lower than the penalty for being in a yellow cell
+        penalty_for_yellow_neighbors = 3  # Lower than the penalty for being in a yellow cell
 
         while open_list:
             # Pop the node with the lowest f-score
@@ -843,8 +842,8 @@ class GridApp:
 
     def clear_previous_path(self):
         """Clears the previously displayed paths on the grid."""
-        for row, col in self.path:
-            self.canvas.itemconfig(self.grid[row][col], fill="white")  # Reset color to white or neutral
+        #for row, col in self.path:
+        #    self.canvas.itemconfig(self.grid[row][col], fill="white")  # Reset color to white or neutral
         self.path.clear()  # Clear the stored path list
 
     def move_robot(self, position):
@@ -940,7 +939,16 @@ class GridApp:
         self.robot_position = self.robot_start_position
         self.place_robot()
         self.load_grid(self.default_map)
-        self.display_delete()
+        
+
+    def clear_grid_text(self):
+        """
+        Clears the text in all cells of the grid.
+        """
+        for row in range(len(self.grid)):
+            for col in range(len(self.grid[row])):
+                # Clear the text in the text part of each cell (assuming it's at index 1)
+                self.canvas.itemconfig(self.grid[row][col][1], text="")
 
     def display_delete(self):
         for text_id in self.text_ids:
@@ -1032,6 +1040,7 @@ class GridApp:
         self.load_grid(self.default_map)
         
         self.path.clear() 
+        self.clear_grid_text()
 
 
 def main():
