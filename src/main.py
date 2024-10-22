@@ -26,6 +26,7 @@ class GridApp:
         self.path = []
         self.default_map = default_map
         self.text_ids = []
+        self.observation = [] # human observation
 
         self.create_policy_dropdown()
 
@@ -65,6 +66,7 @@ class GridApp:
         self.file_menu.add_command(label="Save", command=self.save_grid)
         self.file_menu.add_command(label="Load", command=self.load_grid)
         self.file_menu.add_command(label="Learn", command=self.learn)
+        self.file_menu.add_command(label="Info", command=self.info)
 
         self.color_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Color", menu=self.color_menu)
@@ -151,8 +153,10 @@ class GridApp:
             rect_id, _ = self.grid[row][col] 
             self.canvas.itemconfig(rect_id, fill=self.current_color)  
             self.original_colors[row][col] = self.current_color 
+            
             if self.current_color == self.red_color:
                 self.path.append((row, col))
+                self.observation.append((row, col))
 
     def get_cell_color(self, row, col):
         if 0 <= row < self.height and 0 <= col < self.width:
@@ -200,6 +204,20 @@ class GridApp:
                 color = self.get_cell_color(row, col)
                 if (color == self.red_color):
                     print(color + " " + str(row) + " " + str(col) )
+
+    def info(self):
+        popup = tk.Toplevel()
+        popup.title("Info")
+        
+        # Etiqueta de texto en la ventana popup
+        texto_info = "Robot is blue cell, purple is destination. Red is observations. Yellow is danger. Green is safe. Orange is robot defined trajectory"
+        label = tk.Label(popup, text=texto_info, padx=20, pady=20)
+        label.pack()
+
+        # Botón para cerrar la ventana popup
+        btn_cerrar = tk.Button(popup, text="Cerrar", command=popup.destroy)
+        btn_cerrar.pack(pady=(0, 20))
+
     
     def load_grid(self, filepath=None):
 
@@ -504,6 +522,7 @@ class GridApp:
     def clear_previous_path(self):
         self.path.clear()
 
+
     def move_robot(self, position):
         if 0 <= position[0] < self.height and 0 <= position[1] < self.width:
             if self.canvas.itemcget(self.grid[position[0]][position[1]][0], "fill") != "black":  
@@ -532,8 +551,11 @@ class GridApp:
         reset_button = tk.Button(control_frame, text="Reset", command=self.reset_robot)
         reset_button.grid(row=3, column=1)
 
-        play_trajectory_2_button = tk.Button(control_frame, text="Play Trajectory", command=lambda: self.play_trajectory(self.path))
+        play_trajectory_2_button = tk.Button(control_frame, text="Play robot Trajectory", command=lambda: self.play_trajectory(self.path))
         play_trajectory_2_button.grid(row=4, column=1)
+
+        play_trajectory_3_button = tk.Button(control_frame, text="Play observed Trajectory", command=lambda: self.play_trajectory(self.observation))
+        play_trajectory_3_button.grid(row=5, column=1)
 
         self.clear_button = tk.Button(control_frame, text="Clear Path", command=self.clear_path)
         self.clear_button.grid(row=1, column=1)
@@ -572,6 +594,7 @@ class GridApp:
         
         self.load_grid(self.default_map)
         self.path.clear() 
+        self.observation.clear()
         self.clear_grid_text()
 
 
