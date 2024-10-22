@@ -49,7 +49,9 @@ class GridApp:
                 y2 = y1 + self.cell_size
                 rect_id = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", outline="black")
                 text_id = self.canvas.create_text((x1 + x2) / 2, (y1 + y2) / 2, text="", font=("Arial", 12))
-                self.grid[row][col] = (rect_id, text_id) 
+                learning_rate = 0.5 
+                self.grid[row][col] = (rect_id, text_id, learning_rate) 
+
 
 
         self.canvas.bind("<Button-1>", self.on_canvas_click)
@@ -150,7 +152,7 @@ class GridApp:
         if 0 <= col < self.width and 0 <= row < self.height:
 
 
-            rect_id, _ = self.grid[row][col] 
+            rect_id, _ , _ = self.grid[row][col] 
             self.canvas.itemconfig(rect_id, fill=self.current_color)  
             self.original_colors[row][col] = self.current_color 
             
@@ -202,8 +204,11 @@ class GridApp:
         for row in range(len(self.grid)):
             for col in range(len(self.grid[row])):
                 color = self.get_cell_color(row, col)
+
+                '''
                 if (color == self.red_color):
                     print(color + " " + str(row) + " " + str(col) )
+                '''
 
     def info(self):
         popup = tk.Toplevel()
@@ -234,7 +239,7 @@ class GridApp:
                 for col in range(self.width):
                     color = grid_data[row][col]
                     
-                    rect_id, text_id = self.grid[row][col]
+                    rect_id, text_id, learning_rate = self.grid[row][col]
                     self.canvas.itemconfig(rect_id, fill=color) 
                     self.original_colors[row][col] = color  
 
@@ -254,7 +259,7 @@ class GridApp:
 
     def place_robot(self):
         row, col = self.robot_position
-        rect_id, _ = self.grid[row][col] 
+        rect_id, _ , _= self.grid[row][col] 
         self.canvas.itemconfig(rect_id, fill=self.robot_color) 
 
     def create_policy_dropdown(self):
@@ -294,7 +299,6 @@ class GridApp:
         # Dictionaries to keep track of costs, paths, and chosen neighbors
         came_from = {start: None}
         cost_so_far = {start: 0}
-        cost_so_far_normal = {start: 0}
         chosen_neighbors = {}  # Stores the best neighbor for each cell
 
         # Define weights for each cell type and penalties for neighbors
@@ -304,15 +308,17 @@ class GridApp:
             "#fefb00": 5   # Avoid yellow cells
         }
         penalty_for_yellow_neighbors = 3  # Lower than the penalty for being in a yellow cell
-        # 7 es el max para distancia 1 + 3 por cada nivel de distancia 
-        max_g = 14 #14
-        min_g = 1
+        max_g = 14  # Adjust as needed based on the maximum expected cost
+        min_g = 1   # Adjust as needed based on the minimum expected cost
+
+        # Track all calculated positions
+        calculated_positions = set()
 
         while open_list:
             # Pop the node with the lowest f-score
             _, current = heapq.heappop(open_list)
 
-            # If the robot reaches the goal, reconstruct and display the path
+            # Check if the robot reaches the goal
             if current == goal:
                 self.reconstruct_path(came_from, start, goal)
                 break
@@ -328,18 +334,13 @@ class GridApp:
                 cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col][0], "fill")
 
                 # Assign weight based on cell color
-                if cell_color == "green":
-                    move_cost = weights["green"]
-                elif cell_color == "#fefb00":
-                    move_cost = weights["#fefb00"]
-                else:
-                    move_cost = weights["white"]
+                move_cost = weights.get(cell_color, weights["white"])
 
                 # Check neighbors within the specified distance
                 penalty = 0
-                for r in range(neighbor_row - neighbor_distance, neighbor_row + neighbor_distance + 1):
-                    for c in range(neighbor_col - neighbor_distance, neighbor_col + neighbor_distance + 1):
-                        if (r, c) != (neighbor_row, neighbor_col) and self.is_within_bounds(r, c):
+                for r in range(max(0, neighbor_row - neighbor_distance), min(self.height, neighbor_row + neighbor_distance + 1)):
+                    for c in range(max(0, neighbor_col - neighbor_distance), min(self.width, neighbor_col + neighbor_distance + 1)):
+                        if (r, c) != (neighbor_row, neighbor_col):
                             neighbor_color = self.canvas.itemcget(self.grid[r][c][0], "fill")
                             if neighbor_color == "#fefb00":
                                 penalty += penalty_for_yellow_neighbors
@@ -348,40 +349,61 @@ class GridApp:
                 move_cost += penalty
 
                 # Calculate new cost to reach this neighbor
-                #new_cost = cost_so_far[current] + move_cost
-                new_cost =  move_cost
+                new_cost = cost_so_far[current] + move_cost  # Accumulate cost from current cell
 
                 # Heuristic cost to reach the goal (for tie-breaking)
                 h_cost = self.heuristic(neighbor, goal)
 
-                # Calculate total priority (f = g + h)
-                priority = new_cost + h_cost
-
                 # If this path is shorter, or the neighbor hasn't been visited yet
                 if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
                     cost_so_far[neighbor] = new_cost
-                    cost_so_far_normal[neighbor] = round((new_cost - min_g) / (max_g - min_g), 1)
-                    heapq.heappush(open_list, (priority, neighbor))
+                    heapq.heappush(open_list, (new_cost + h_cost, neighbor))
                     came_from[neighbor] = current
 
                     # Record the chosen neighbor for this cell
                     chosen_neighbors[neighbor] = current
 
-            # After each step, update the grid with the latest costs and chosen paths
-            # self.update_cost_display(cost_so_far, chosen_neighbors)
+                # Track all calculated positions
+                calculated_positions.add(neighbor)
 
-        # No path found
+        # If no path found
         if current != goal:
             print("No path found!")
 
-        # After calculating the shortest path, display the total cost (g + h) for each cell
-        self.display_final_costs(cost_so_far_normal, chosen_neighbors)
+        # Calculate costs for all cells, even those not reached
+        for row in range(self.height):
+            for col in range(self.width):
+                cell_position = (row, col)
+
+                # If the cell was reached, get the cost from cost_so_far
+                if cell_position in cost_so_far:
+                    g_cost = cost_so_far[cell_position]
+                else:
+                    # If not reached, calculate the cost based on its color
+                    cell_color = self.canvas.itemcget(self.grid[row][col][0], "fill")
+                    move_cost = weights.get(cell_color, weights["white"])
+                    
+                    # Calculate penalties for neighbors (if any)
+                    penalty = 0
+                    for r in range(max(0, row - neighbor_distance), min(self.height, row + neighbor_distance + 1)):
+                        for c in range(max(0, col - neighbor_distance), min(self.width, col + neighbor_distance + 1)):
+                            if (r, c) != (row, col):
+                                neighbor_color = self.canvas.itemcget(self.grid[r][c][0], "fill")
+                                if neighbor_color == "#fefb00":
+                                    penalty += penalty_for_yellow_neighbors
+
+                    g_cost = move_cost + penalty  # Properly calculated cost
+
+                h_cost = self.heuristic(cell_position, goal)  # Calculate heuristic cost to the goal
+                
+                # Display g and h costs in your grid
+                self.canvas.itemconfig(self.grid[row][col][1], text=f"g: {g_cost}\nh: {h_cost}")
+
 
     def is_within_bounds(self, row, col):
         return 0 <= row < self.height and 0 <= col < self.width
 
     def find_shortest_path(self):
-        """Finds the shortest path to the destination while maximizing visits to green cells and avoiding yellow cells."""
         start = self.robot_position
         goal = self.destination_position
         # 5 is max
@@ -459,7 +481,10 @@ class GridApp:
             print("No path found!")
 
         # After calculating the shortest path, display the total cost (g + h) for each cell
-        self.display_final_costs(cost_so_far_normalized, chosen_neighbors)
+        print("====")
+        print(chosen_neighbors)
+        print("====")
+        self.display_final_costs_v2(cost_so_far_normalized, chosen_neighbors)
 
     def update_cost_display(self, cost_so_far, chosen_neighbors):
         for row in range(self.height):
@@ -488,10 +513,33 @@ class GridApp:
                     else:
                         self.canvas.itemconfig(self.grid[row][col][1], text=f"{f_cost}")
 
+    def display_final_costs_v2(self, cost_so_far, chosen_neighbors):
+        for row in range(len(self.grid)):
+            for col in range(len(self.grid[row])):
+                cell_position = (row, col)
+
+                # Check if the cell has a cost so far
+                if cell_position in cost_so_far:
+                    g_cost = cost_so_far[cell_position]
+                    h_cost = self.heuristic(cell_position, self.destination_position)
+                    f_cost = g_cost + h_cost
+                    
+                    # Display costs for all cells, including neighbors and non-neighbors
+                    if cell_position in chosen_neighbors:
+                        chosen_neighbor = chosen_neighbors[cell_position]
+                        # If it's a chosen neighbor, you can choose to highlight it or display different info
+                        self.canvas.itemconfig(self.grid[row][col][1], text=f"h: {h_cost}\n g: {g_cost}")
+                    else:
+                        self.canvas.itemconfig(self.grid[row][col][1], text=f"f: {f_cost}")
+                else:
+                    # If there's no cost for this cell, you can choose to clear the text or leave it as is
+                    self.canvas.itemconfig(self.grid[row][col][1], text="")
+
+
     
     def place_destination(self):
         row, col = self.destination_position
-        rect_id, _ = self.grid[row][col]  
+        rect_id, _ , _ = self.grid[row][col]  
         self.canvas.itemconfig(rect_id, fill=self.destination_color) 
     
     def get_neighbors(self, row, col):
@@ -514,7 +562,7 @@ class GridApp:
 
         self.path.reverse()  
         for row, col in self.path[0:-1]:
-            rect_id, _ = self.grid[row][col]  
+            rect_id, _ , _ = self.grid[row][col]  
             self.canvas.itemconfig(rect_id, fill="orange")
 
         print("Path found:", self.path)
