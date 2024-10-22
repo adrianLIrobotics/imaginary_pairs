@@ -13,6 +13,7 @@ class GridApp:
         self.current_color = "white"  
         self.robot_color = "blue" 
         self.destination_color = "purple"  
+        self.red_color = "#ff2600"
         self.grid = [[None for _ in range(width)] for _ in range(height)]
         self.original_colors = [[self.current_color for _ in range(width)] for _ in range(height)] 
         self.robot_start_position = (3, 2)
@@ -63,6 +64,7 @@ class GridApp:
         self.menu.add_cascade(label="File", menu=self.file_menu)
         self.file_menu.add_command(label="Save", command=self.save_grid)
         self.file_menu.add_command(label="Load", command=self.load_grid)
+        self.file_menu.add_command(label="Learn", command=self.learn)
 
         self.color_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Color", menu=self.color_menu)
@@ -190,6 +192,13 @@ class GridApp:
             grid_data = [[self.canvas.itemcget(self.grid[row][col][0], "fill") for col in range(self.width)] for row in range(self.height)]
             with open(filename, 'w') as f:
                 json.dump(grid_data, f)
+
+    def learn(self):
+        for row in range(len(self.grid)):
+            for col in range(len(self.grid[row])):
+                color = self.get_cell_color(row, col)
+                if (color == self.red_color):
+                    print(color + " " + str(row) + " " + str(col) )
     
     def load_grid(self, filepath=None):
 
@@ -574,3 +583,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # ff2600 - rojo
