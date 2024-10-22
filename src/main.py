@@ -200,15 +200,47 @@ class GridApp:
             with open(filename, 'w') as f:
                 json.dump(grid_data, f)
 
+    def update_cell_color(self, new_cell_val, row, col):
+        if new_cell_val <= 0.5:
+            # change cell to green color.
+            self.canvas.itemconfig(self.grid[row][col][0], fill="green")
+        if new_cell_val >= 0.7:
+            self.canvas.itemconfig(self.grid[row][col][0], fill="#fefb00")
+
+    def update_text_g_local(self, new_g, h, row, col):
+        
+        self.canvas.itemconfig(self.grid[row][col][1], text=f"g: {new_g:.2f}\nh: {h}")
+
     def learn(self):
+        import re
+        def parse_g_value(g_string):
+            g_values = re.findall(r'g:\s*([0-9]*\.?[0-9]+)', g_string)
+      
+    
+            # Convertimos los valores encontrados a float
+            return [float(value) for value in g_values]
+        
+        def parse_h_value(h_string):
+  
+            h_values = re.findall(r'h:\s*([0-9]*\.?[0-9]+)', h_string)
+    
+            # Convertimos los valores encontrados a float
+            return [float(value) for value in h_values]
+            
+        self.observation: list
         for row in range(len(self.grid)):
             for col in range(len(self.grid[row])):
                 color = self.get_cell_color(row, col)
-
-                '''
+                text_content = self.canvas.itemcget(self.grid[row][col][1], "text")
+                g_local = parse_g_value(text_content)[0]
+                h_local = parse_h_value(text_content)[0]
                 if (color == self.red_color):
-                    print(color + " " + str(row) + " " + str(col) )
-                '''
+                 
+                    updated_local_g = self.update_g_value(g_local, 0, 0.5)
+                    print(updated_local_g)
+                    self.update_cell_color(updated_local_g, row, col)
+                    self.update_text_g_local(updated_local_g, h_local, row, col)
+                
 
     def info(self):
         popup = tk.Toplevel()
@@ -416,6 +448,23 @@ class GridApp:
 
     def is_within_bounds(self, row, col):
         return 0 <= row < self.height and 0 <= col < self.width
+    
+    def update_g_value(self, g_old, O, alpha=0.5):
+        """
+        Update the g value based on the equation:
+        g_new(x, y) = g_old(x, y) * (1 - alpha) + alpha * O(x, y)
+
+        Parameters:
+        g_old (float): The old g value at (x, y)
+        O (float): The O(x, y) value
+        alpha (float): The alpha parameter (weighting factor)
+
+        Returns:
+        float: The updated g value
+        """
+        g_new = g_old * (1 - alpha) + alpha * O
+        return g_new
+
 
     def find_shortest_path(self):
         start = self.robot_position
