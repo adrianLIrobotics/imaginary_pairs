@@ -285,7 +285,7 @@ class GridApp:
     def heuristic(self, a, b):
             return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
-    def find_shortest_path_with_neighbor_distance(self, neighbor_distance=1):
+    def find_shortest_path_with_neighbor_distance(self, neighbor_distance=1): # policy 2
         """Finds the shortest path to the destination while maximizing visits to green cells 
         and avoiding yellow cells. Penalizes green cells near yellow cells."""
         
@@ -312,6 +312,52 @@ class GridApp:
         min_g = 1
         max_g = 14  # Adjust based on your maximum expected cost
 
+        def visit():    
+                    neighbor_row, neighbor_col = neighbor
+
+                    # Get the color of the neighbor cell
+                    cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col][0], "fill")
+
+                    # Assign weight based on cell color
+                    move_cost = weights.get(cell_color, weights["white"])
+
+                    # Check neighbors within the specified distance for penalties
+                    penalty = 0
+                    for r in range(neighbor_row - neighbor_distance, neighbor_row + neighbor_distance + 1):
+                        for c in range(neighbor_col - neighbor_distance, neighbor_col + neighbor_distance + 1):
+                            if (r, c) != (neighbor_row, neighbor_col) and self.is_within_bounds(r, c):
+                                neighbor_color = self.canvas.itemcget(self.grid[r][c][0], "fill")
+                                if neighbor_color == "#fefb00":
+                                    penalty += penalty_for_yellow_neighbors
+
+                    # Add penalty if any yellow neighbors are found
+                    move_cost += penalty
+
+                    # Calculate local cost to reach this neighbor
+                    new_cost = move_cost  # Local cost for this neighbor
+
+                    # Heuristic cost to reach the goal
+                    h_cost = self.heuristic(neighbor, goal)
+
+                    # If the neighbor is yellow, set its local cost to 1 directly
+                    if cell_color == "#fefb00":
+                        local_costs[neighbor] = 1
+                    else:
+                        local_costs[neighbor] = move_cost  # Store the local g cost
+
+                    # Calculate total priority (f = g + h)
+                    priority = new_cost + h_cost
+
+                    # If this path is shorter, or the neighbor hasn't been visited yet
+                    if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
+                        cost_so_far[neighbor] = new_cost
+                        heapq.heappush(open_list, (priority, neighbor))
+                        came_from[neighbor] = current
+
+                        # Record the chosen neighbor for this cell
+                        chosen_neighbors[neighbor] = current
+
+
         while open_list:
             # Pop the node with the lowest f-score
             _, current = heapq.heappop(open_list)
@@ -319,52 +365,20 @@ class GridApp:
             # If the robot reaches the goal, reconstruct and display the path
             if current == goal:
                 self.reconstruct_path(came_from, start, goal)
+                print("reconstruc" + str(came_from))
+                for neighbor in self.get_all_cells():
+                    visit()
                 break
 
             # Get the current row and column
             current_row, current_col = current
 
             # Check all possible neighbors
+
             for neighbor in self.get_neighbors(current_row, current_col):
-                neighbor_row, neighbor_col = neighbor
-
-                # Get the color of the neighbor cell
-                cell_color = self.canvas.itemcget(self.grid[neighbor_row][neighbor_col][0], "fill")
-
-                # Assign weight based on cell color
-                move_cost = weights.get(cell_color, weights["white"])
-
-                # Check neighbors within the specified distance for penalties
-                penalty = 0
-                for r in range(neighbor_row - neighbor_distance, neighbor_row + neighbor_distance + 1):
-                    for c in range(neighbor_col - neighbor_distance, neighbor_col + neighbor_distance + 1):
-                        if (r, c) != (neighbor_row, neighbor_col) and self.is_within_bounds(r, c):
-                            neighbor_color = self.canvas.itemcget(self.grid[r][c][0], "fill")
-                            if neighbor_color == "#fefb00":
-                                penalty += penalty_for_yellow_neighbors
-
-                # Add penalty if any yellow neighbors are found
-                move_cost += penalty
-
-                # Calculate local cost to reach this neighbor
-                new_cost = move_cost  # Local cost for this neighbor
-
-                # Heuristic cost to reach the goal
-                h_cost = self.heuristic(neighbor, goal)
-
-                # Calculate total priority (f = g + h)
-                priority = new_cost + h_cost
-
-                # If this path is shorter, or the neighbor hasn't been visited yet
-                if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
-                    cost_so_far[neighbor] = new_cost
-                    local_costs[neighbor] = move_cost  # Store the local g cost
-                    heapq.heappush(open_list, (priority, neighbor))
-                    came_from[neighbor] = current
-
-                    # Record the chosen neighbor for this cell
-                    chosen_neighbors[neighbor] = current
-
+                visit()
+                #for neighbor in self.get_all_cells():
+           
         # No path found
         if current != goal:
             print("No path found!")
@@ -377,10 +391,20 @@ class GridApp:
                 # Calculate local g cost for the display
                 if cell_position in local_costs:
                     g_cost = local_costs[cell_position]
+                    # if yellow always 1
+                    
                     # Normalize g cost between 0 and 1
                     normalized_g = (g_cost - min_g) / (max_g - min_g) if max_g > min_g else 0
+                    if "#fefb00" == self.get_cell_color(row, col):
+                        normalized_g = 1
+                    if self.canvas.itemcget(self.grid[row][col][0], "fill") == "#fefb00":
+                        normalized_g = 1 
                 else:
-                    normalized_g = 0  # If the cell was never reached, set g to 0
+                    # Set normalized g to 1 for yellow cells
+                    if self.canvas.itemcget(self.grid[row][col][0], "fill") == "#fefb00":
+                        normalized_g = 1  # Always show 1 for yellow cells
+                    else:
+                        normalized_g = 0  # If not reached and not yellow
 
                 # Calculate heuristic cost to the goal
                 h_cost = self.heuristic(cell_position, goal)
@@ -388,11 +412,7 @@ class GridApp:
                 # Update display with normalized g and h values
                 self.canvas.itemconfig(self.grid[row][col][1], text=f"g: {normalized_g:.2f}\nh: {h_cost}")
 
-        # Optionally, print the chosen neighbors for debugging
-        print("====")
-        print(chosen_neighbors)
-        print("====")
-
+    
 
     def is_within_bounds(self, row, col):
         return 0 <= row < self.height and 0 <= col < self.width
@@ -474,8 +494,16 @@ class GridApp:
                     g_cost = local_costs[cell_position]
                     # Normalize g cost between 0 and 1
                     normalized_g = (g_cost - min_g) / (max_g - min_g) if max_g > min_g else 0
+                    if "#fefb00" == self.get_cell_color(row, col):
+                        normalized_g = 1
+                    if self.canvas.itemcget(self.grid[row][col][0], "fill") == "#fefb00":
+                        normalized_g = 1 
                 else:
                     normalized_g = 0  # If the cell was never reached, set g to 0
+                    if "#fefb00" == self.get_cell_color(row, col):
+                        normalized_g = 1
+                    if self.canvas.itemcget(self.grid[row][col][0], "fill") == "#fefb00":
+                        normalized_g = 1 
 
                 # Calculate heuristic cost to the goal
                 h_cost = self.heuristic(cell_position, goal)
@@ -553,6 +581,16 @@ class GridApp:
                 neighbors.append((neighbor_row, neighbor_col))
                 print(f"Cell ({neighbor_row}, {neighbor_col}) color: {self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], 'fill')}")
         return neighbors
+    
+    def get_all_cells(self):
+        all_cells = []
+        for row in range(self.height):
+            for col in range(self.width):
+                # Add the cell position to the list
+                all_cells.append((row, col))
+                # Print the color of the cell
+                print(f"Cell ({row}, {col}) color: {self.canvas.itemcget(self.grid[row][col], 'fill')}")
+        return all_cells
 
     def reconstruct_path(self, came_from, start, goal, clear_previous=True):
         current = goal
