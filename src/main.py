@@ -314,6 +314,7 @@ class GridApp:
         # Dictionaries to keep track of costs, paths, and chosen neighbors
         came_from = {start: None}
         cost_so_far = {start: 0}
+        cost_so_far_normal = {start: 0}
         chosen_neighbors = {}  # Stores the best neighbor for each cell
 
         # Define weights for each cell type and penalties for neighbors
@@ -323,6 +324,9 @@ class GridApp:
             "#fefb00": 5   # Avoid yellow cells
         }
         penalty_for_yellow_neighbors = 3  # Lower than the penalty for being in a yellow cell
+        # 7 es el max para distancia 1 + 3 por cada nivel de distancia 
+        max_g = 14 #14
+        min_g = 1
 
         while open_list:
             # Pop the node with the lowest f-score
@@ -364,7 +368,8 @@ class GridApp:
                 move_cost += penalty
 
                 # Calculate new cost to reach this neighbor
-                new_cost = cost_so_far[current] + move_cost
+                #new_cost = cost_so_far[current] + move_cost
+                new_cost =  move_cost
 
                 # Heuristic cost to reach the goal (for tie-breaking)
                 h_cost = self.heuristic(neighbor, goal)
@@ -375,6 +380,7 @@ class GridApp:
                 # If this path is shorter, or the neighbor hasn't been visited yet
                 if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
                     cost_so_far[neighbor] = new_cost
+                    cost_so_far_normal[neighbor] = round((new_cost - min_g) / (max_g - min_g), 1)
                     heapq.heappush(open_list, (priority, neighbor))
                     came_from[neighbor] = current
 
@@ -389,7 +395,7 @@ class GridApp:
             print("No path found!")
 
         # After calculating the shortest path, display the total cost (g + h) for each cell
-        self.display_final_costs(cost_so_far, chosen_neighbors)
+        self.display_final_costs(cost_so_far_normal, chosen_neighbors)
 
     def is_within_bounds(self, row, col):
         """Checks if the row and column are within the grid bounds."""
@@ -399,6 +405,9 @@ class GridApp:
         """Finds the shortest path to the destination while maximizing visits to green cells and avoiding yellow cells."""
         start = self.robot_position
         goal = self.destination_position
+        # 5 is max
+        min_g = 1
+        max_g = 5
 
         # Set up a priority queue (min-heap) for A* search
         open_list = []
@@ -407,6 +416,7 @@ class GridApp:
         # Dictionaries to keep track of costs, paths, and chosen neighbors
         came_from = {start: None}
         cost_so_far = {start: 0}
+        cost_so_far_normalized = {start: 0}
         chosen_neighbors = {}  # Stores the best neighbor for each cell
 
         # Define weights for each cell type
@@ -443,7 +453,8 @@ class GridApp:
                     move_cost = weights["white"]
 
                 # Calculate new cost to reach this neighbor
-                new_cost = cost_so_far[current] + move_cost
+                #new_cost = cost_so_far[current] + move_cost
+                new_cost = move_cost
 
                 # Heuristic cost to reach the goal (for tie-breaking)
                 h_cost = self.heuristic(neighbor, goal)
@@ -454,6 +465,7 @@ class GridApp:
                 # If this path is shorter, or the neighbor hasn't been visited yet
                 if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
                     cost_so_far[neighbor] = new_cost
+                    cost_so_far_normalized[neighbor] = (new_cost - min_g) / (max_g - min_g)
                     heapq.heappush(open_list, (priority, neighbor))
                     came_from[neighbor] = current
 
@@ -468,7 +480,7 @@ class GridApp:
             print("No path found!")
 
         # After calculating the shortest path, display the total cost (g + h) for each cell
-        self.display_final_costs(cost_so_far, chosen_neighbors)
+        self.display_final_costs(cost_so_far_normalized, chosen_neighbors)
 
     def update_cost_display(self, cost_so_far, chosen_neighbors):
         for row in range(self.height):
