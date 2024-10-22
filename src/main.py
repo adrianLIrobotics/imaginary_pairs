@@ -150,8 +150,9 @@ class GridApp:
 
             rect_id, _ = self.grid[row][col] 
             self.canvas.itemconfig(rect_id, fill=self.current_color)  
-
             self.original_colors[row][col] = self.current_color 
+            if self.current_color == self.red_color:
+                self.path.append((row, col))
 
     def get_cell_color(self, row, col):
         if 0 <= row < self.height and 0 <= col < self.width:
@@ -555,6 +556,7 @@ class GridApp:
         self.text_ids.clear()
         
     def play_trajectory(self, trajectory):
+        print(trajectory)
         self.current_trajectory = trajectory
         self.trajectory_index = 0
         self.move_next_position()
