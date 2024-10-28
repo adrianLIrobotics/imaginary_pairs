@@ -464,6 +464,35 @@ class GridApp:
         """
         g_new = g_old * (1 - alpha) + alpha * O
         return g_new
+    
+    def update_neighboring_cells(self, cell_x, cell_y, observation, decay_factor=0.5):
+        """
+        Updates neighboring cells based on an observation, applying a decay factor to the impact
+        on each neighbor.
+
+        Parameters:
+        - cell_x, cell_y (int): Coordinates of the observed cell.
+        - observation (float): The observed g-value for the target cell.
+        - decay_factor (float): Factor by which the update effect decreases for neighbors.
+        """
+        # Directly update the target cell
+        self.grid[cell_x][cell_y]["g"] = observation
+        
+        # Get neighbors
+        neighbors = self.get_neighbors(cell_x, cell_y)
+
+        for neighbor_x, neighbor_y in neighbors:
+            # Calculate impact with decay factor for immediate neighbors
+            distance = abs(cell_x - neighbor_x) + abs(cell_y - neighbor_y)  # Manhattan distance
+            impact_factor = decay_factor ** distance  # Apply decay factor based on distance
+            
+            # New g-value for neighbor as a weighted average with impact factor
+            current_value = self.grid[neighbor_x][neighbor_y]["g"]
+            updated_value = (1 - impact_factor) * current_value + impact_factor * observation
+            
+            # Update the neighbor cell with the new g-value
+            self.grid[neighbor_x][neighbor_y]["g"] = updated_value
+
 
 
     def find_shortest_path(self):
