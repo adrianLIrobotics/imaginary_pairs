@@ -3,6 +3,7 @@ from tkinter import filedialog, colorchooser
 import json
 import os
 import heapq
+import re
 
 class GridApp:
     def __init__(self, root, width, height, default_map=None):
@@ -50,7 +51,8 @@ class GridApp:
                 rect_id = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", outline="black")
                 text_id = self.canvas.create_text((x1 + x2) / 2, (y1 + y2) / 2, text="", font=("Arial", 12))
                 learning_rate = 0.5 
-                self.grid[row][col] = (rect_id, text_id, learning_rate) 
+                previous_color = ""
+                self.grid[row][col] = (rect_id, text_id, learning_rate, previous_color) 
 
 
 
@@ -151,8 +153,16 @@ class GridApp:
         row = event.y // self.cell_size
         if 0 <= col < self.width and 0 <= row < self.height:
 
+            # Extrae los valores existentes en la celda actual
+            current_color = self.get_cell_color(row, col)
+            rect_id, text_id, learning_rate, previous_color = self.grid[row][col]
 
-            rect_id, _ , _ = self.grid[row][col] 
+            # Define el nuevo color que quieres establecer como previous_color
+            new_previous_color = str(self.current_color)
+
+            # Reasigna toda la tupla con el nuevo previous_color
+            self.grid[row][col] = (rect_id, text_id, learning_rate, current_color)
+
             self.canvas.itemconfig(rect_id, fill=self.current_color)  
             self.original_colors[row][col] = self.current_color 
             
@@ -160,11 +170,24 @@ class GridApp:
                 self.path.append((row, col))
                 self.observation.append((row, col))
 
+            rect_id, text_id, learning_rate, previous = self.grid[row][col]
+            print("Current color: "+new_previous_color)
+            print("Previous color: "+previous)
+
     def get_cell_color(self, row, col):
         if 0 <= row < self.height and 0 <= col < self.width:
             return self.canvas.itemcget(self.grid[row][col][0], "fill")
         else:
             return None 
+        
+    def get_cell_previous_color(self, row, col)->str:
+        if 0 <= row < self.height and 0 <= col < self.width:
+            _, _, _, previous_color = self.grid[row][col]
+            print("previous_color_update: "+ previous_color)
+            return previous_color
+        else:
+            return None 
+
 
     def on_mouse_motion(self, event):
         col = event.x // self.cell_size
@@ -211,37 +234,46 @@ class GridApp:
         
         self.canvas.itemconfig(self.grid[row][col][1], text=f"g: {new_g:.2f}\nh: {h}")
 
-    def learn(self):
-        import re
-        def parse_g_value(g_string):
+    def parse_g_value(self, g_string):
             g_values = re.findall(r'g:\s*([0-9]*\.?[0-9]+)', g_string)
-      
-    
             # Convertimos los valores encontrados a float
             return [float(value) for value in g_values]
-        
-        def parse_h_value(h_string):
+    
+    def parse_h_value(self, h_string):
   
             h_values = re.findall(r'h:\s*([0-9]*\.?[0-9]+)', h_string)
-    
             # Convertimos los valores encontrados a float
             return [float(value) for value in h_values]
+
+    def get_g(self, row, col):
+        text_content = self.canvas.itemcget(self.grid[row][col][1], "text")
+        return self.parse_g_value(text_content)[0]
+      
+
+    def get_h(self, row, col):
+        text_content = self.canvas.itemcget(self.grid[row][col][1], "text")
+        return self.parse_h_value(text_content)[0]
+
+    def get_f(self, row, col):
+        text_content = self.canvas.itemcget(self.grid[row][col][1], "text")
+        g_local = self.parse_g_value(text_content)[0]
+        h_local = self.parse_h_value(text_content)[0]
+        return g_local + h_local
+
+    def learn(self):
             
         self.observation: list
         for row in range(len(self.grid)):
             for col in range(len(self.grid[row])):
                 color = self.get_cell_color(row, col)
                 text_content = self.canvas.itemcget(self.grid[row][col][1], "text")
-                g_local = parse_g_value(text_content)[0]
-                h_local = parse_h_value(text_content)[0]
+                g_local = self.parse_g_value(text_content)[0]
+                h_local = self.parse_h_value(text_content)[0]
                 if (color == self.red_color):
                  
-                    updated_local_g = self.update_g_value(g_local, 0, 0.5)
-                    print(updated_local_g)
-                    self.update_cell_color(updated_local_g, row, col)
-                    self.update_text_g_local(updated_local_g, h_local, row, col)
-                
-
+                    self.update_g_value(g_local, 0, 0.5, h_local, row, col)
+                    self.update_neighboring_cells(row, col, 0, 0.5)
+     
     def info(self):
         popup = tk.Toplevel()
         popup.title("Info")
@@ -255,7 +287,6 @@ class GridApp:
         btn_cerrar = tk.Button(popup, text="Cerrar", command=popup.destroy)
         btn_cerrar.pack(pady=(0, 20))
 
-    
     def load_grid(self, filepath=None):
 
         if not filepath:
@@ -271,7 +302,7 @@ class GridApp:
                 for col in range(self.width):
                     color = grid_data[row][col]
                     
-                    rect_id, text_id, learning_rate = self.grid[row][col]
+                    rect_id, text_id, learning_rate, _ = self.grid[row][col]
                     self.canvas.itemconfig(rect_id, fill=color) 
                     self.original_colors[row][col] = color  
 
@@ -291,7 +322,7 @@ class GridApp:
 
     def place_robot(self):
         row, col = self.robot_position
-        rect_id, _ , _= self.grid[row][col] 
+        rect_id, _ , _, _= self.grid[row][col] 
         self.canvas.itemconfig(rect_id, fill=self.robot_color) 
 
     def create_policy_dropdown(self):
@@ -444,12 +475,10 @@ class GridApp:
                 # Update display with normalized g and h values
                 self.canvas.itemconfig(self.grid[row][col][1], text=f"g: {normalized_g:.2f}\nh: {h_cost}")
 
-    
-
     def is_within_bounds(self, row, col):
         return 0 <= row < self.height and 0 <= col < self.width
     
-    def update_g_value(self, g_old, O, alpha=0.5):
+    def update_g_value(self, g_old, O, alpha=0.5, h_local=0, row=0, col=0):
         """
         Update the g value based on the equation:
         g_new(x, y) = g_old(x, y) * (1 - alpha) + alpha * O(x, y)
@@ -462,7 +491,19 @@ class GridApp:
         Returns:
         float: The updated g value
         """
+        
         g_new = g_old * (1 - alpha) + alpha * O
+        print("self.get_cell_previous_color(row, col) "+ str(self.get_cell_previous_color(row, col)))
+        if self.get_cell_previous_color(row, col) != "orange":
+            self.update_cell_color(g_new, row, col)
+        
+        if self.get_cell_previous_color(row, col) == "orange":
+            self.canvas.itemconfig(self.grid[row][col][0], fill="orange")
+
+        self.update_text_g_local(g_new, h_local, row, col)
+        # If cell was orange put orange back
+        
+
         return g_new
     
     def update_neighboring_cells(self, cell_x, cell_y, observation, decay_factor=0.5):
@@ -475,25 +516,38 @@ class GridApp:
         - observation (float): The observed g-value for the target cell.
         - decay_factor (float): Factor by which the update effect decreases for neighbors.
         """
-        # Directly update the target cell
-        self.grid[cell_x][cell_y]["g"] = observation
         
         # Get neighbors
         neighbors = self.get_neighbors(cell_x, cell_y)
+        print(neighbors)
 
         for neighbor_x, neighbor_y in neighbors:
+            print(str(neighbor_x) + " "+ str(neighbor_y))
+            previous_color = self.get_cell_previous_color(neighbor_x, neighbor_y)
             # Calculate impact with decay factor for immediate neighbors
             distance = abs(cell_x - neighbor_x) + abs(cell_y - neighbor_y)  # Manhattan distance
             impact_factor = decay_factor ** distance  # Apply decay factor based on distance
             
             # New g-value for neighbor as a weighted average with impact factor
-            current_value = self.grid[neighbor_x][neighbor_y]["g"]
+            current_value = self.get_g(neighbor_x, neighbor_y)
+            current_h = self.get_h(neighbor_x, neighbor_y)
             updated_value = (1 - impact_factor) * current_value + impact_factor * observation
+
             
-            # Update the neighbor cell with the new g-value
-            self.grid[neighbor_x][neighbor_y]["g"] = updated_value
+            print("previous_color :" + previous_color)
+            '''
+            if  previous_color != "orange":
+                self.update_cell_color(updated_value, neighbor_x, neighbor_y)
 
+            if previous_color == "orange":
+                self.canvas.itemconfig(self.grid[neighbor_x][neighbor_y][0], fill="orange")
+            '''
 
+            current_color_neighbour = self.get_cell_color(neighbor_x, neighbor_y)
+            if current_color_neighbour != "orange" and current_color_neighbour != self.red_color:
+                self.update_cell_color(updated_value, neighbor_x, neighbor_y)
+
+            self.update_text_g_local(updated_value, current_h, neighbor_x, neighbor_y)           
 
     def find_shortest_path(self):
         start = self.robot_position
@@ -594,7 +648,6 @@ class GridApp:
         print(chosen_neighbors)
         print("====")
 
-
     def update_cost_display(self, cost_so_far, chosen_neighbors):
         for row in range(self.height):
             for col in range(self.width):
@@ -643,12 +696,10 @@ class GridApp:
                 else:
                     # If there's no cost for this cell, you can choose to clear the text or leave it as is
                     self.canvas.itemconfig(self.grid[row][col][1], text="")
-
-
     
     def place_destination(self):
         row, col = self.destination_position
-        rect_id, _ , _ = self.grid[row][col]  
+        rect_id, _ , _ , _ = self.grid[row][col]  
         self.canvas.itemconfig(rect_id, fill=self.destination_color) 
     
     def get_neighbors(self, row, col):
@@ -681,8 +732,9 @@ class GridApp:
 
         self.path.reverse()  
         for row, col in self.path[0:-1]:
-            rect_id, _ , _ = self.grid[row][col]  
+            rect_id, _ , _, _ = self.grid[row][col]  
             self.canvas.itemconfig(rect_id, fill="orange")
+
 
         print("Path found:", self.path)
 
