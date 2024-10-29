@@ -478,6 +478,19 @@ class GridApp:
     def is_within_bounds(self, row, col):
         return 0 <= row < self.height and 0 <= col < self.width
     
+    def get_neighbor_by_distance(self, row, col, distance=1):
+        neighbors = []
+        for d_row in range(-distance, distance + 1):
+            for d_col in range(-distance, distance + 1):
+                # Evita la celda central y mantén la distancia manhattan <= `distance`
+                if (d_row != 0 or d_col != 0) and abs(d_row) + abs(d_col) <= distance:
+                    neighbor_row, neighbor_col = row + d_row, col + d_col
+                    if 0 <= neighbor_row < self.height and 0 <= neighbor_col < self.width:
+                        neighbors.append((neighbor_row, neighbor_col))
+                        print(f"Cell ({neighbor_row}, {neighbor_col}) color: {self.canvas.itemcget(self.grid[neighbor_row][neighbor_col], 'fill')}")
+        return neighbors
+
+
     def update_g_value(self, g_old, O, alpha=0.5, h_local=0, row=0, col=0):
         """
         Update the g value based on the equation:
@@ -517,7 +530,7 @@ class GridApp:
         """
         
         # Get neighbors
-        neighbors = self.get_neighbors(cell_x, cell_y)
+        neighbors = self.get_neighbor_by_distance(cell_x, cell_y, 2)
         print(neighbors)
 
         for neighbor_x, neighbor_y in neighbors:
