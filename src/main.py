@@ -501,9 +501,8 @@ class GridApp:
             self.canvas.itemconfig(self.grid[row][col][0], fill="orange")
 
         self.update_text_g_local(g_new, h_local, row, col)
-        # If cell was orange put orange back
-        
-
+        self.update_robot()
+        self.update_goal()
         return g_new
     
     def update_neighboring_cells(self, cell_x, cell_y, observation, decay_factor=0.5):
@@ -547,7 +546,9 @@ class GridApp:
             if current_color_neighbour != "orange" and current_color_neighbour != self.red_color:
                 self.update_cell_color(updated_value, neighbor_x, neighbor_y)
 
-            self.update_text_g_local(updated_value, current_h, neighbor_x, neighbor_y)           
+            self.update_text_g_local(updated_value, current_h, neighbor_x, neighbor_y)      
+            self.update_robot()   
+            self.update_goal()
 
     def find_shortest_path(self):
         start = self.robot_position
@@ -788,8 +789,15 @@ class GridApp:
     def clear_grid_text(self):
         for row in range(len(self.grid)):
             for col in range(len(self.grid[row])):
-               
                 self.canvas.itemconfig(self.grid[row][col][1], text="")
+
+    def update_robot(self):
+        row, col = self.robot_position 
+        self.canvas.itemconfig(self.grid[row][col][0], fill=self.robot_color)
+
+    def update_goal(self):
+        row, col = self.destination_position 
+        self.canvas.itemconfig(self.grid[row][col][0], fill=self.destination_color)
 
     def display_delete(self):
         for text_id in self.text_ids:
